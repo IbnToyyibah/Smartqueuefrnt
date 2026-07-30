@@ -26,6 +26,16 @@ const normalizeBranchList = (payload) => {
   }
 }
 
+const toSnakeCaseQueueJoin = (data = {}) => ({
+  branch_id: data.branch_id || data.branchId || '',
+  service_id: data.service_id || data.serviceId || '',
+  time_slot: data.time_slot || data.timeSlot || '',
+  name: data.name || '',
+  email: data.email || '',
+  phone: data.phone || '',
+  notify_channel: data.notify_channel || data.notifyChannel || 'both',
+})
+
 const headers = (extra = {}) => ({
   'Content-Type': 'application/json',
   ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
@@ -68,7 +78,7 @@ export const authApi = {
 
 // Queue
 export const queueApi = {
-  join: (data) => post('/queue/join', data),
+  join: (data) => post('/queue/join', toSnakeCaseQueueJoin(data)),
   myTicket: () => get('/queue/my'),
   history: () => get('/queue/history'),
   branchQueue: (id, sts) => get(`/queue/branch/${id}${sts ? `?status=${sts}` : ''}`),
