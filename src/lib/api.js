@@ -148,6 +148,15 @@ export const branchApi = {
         : res.services,
     }
   },
+  createService: async (branchId, data) => {
+    const res = await post(`/branches/${branchId}/services`, data)
+    return { ...res, service: { ...res.service, id: res.service?.id || res.service?._id } }
+  },
+  updateService: async (serviceId, data) => {
+    const res = await patch(`/branches/services/${serviceId}`, data)
+    return { ...res, service: { ...res.service, id: res.service?.id || res.service?._id } }
+  },
+  removeService: (serviceId) => del(`/branches/services/${serviceId}`),
   create: async (data) => {
     const res = await post('/branches', data)
     return { ...res, branch: normalizeBranch(res.branch) }
