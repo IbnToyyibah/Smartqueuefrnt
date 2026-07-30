@@ -95,6 +95,14 @@ export default function QueueRegistration() {
   const selectedBranch = branches.find(b => b._id === form.branchId)
   const selectedService = SERVICE_TYPES.find(s => s.id === form.serviceId)
     || (selectedBranch?.services || []).find(s => s.id === form.serviceId)
+  const availableServices = selectedBranch
+    ? SERVICE_TYPES.map((service) => {
+        const branchService = (selectedBranch.services || []).find((s) => (s.id || s._id) === service.id)
+        return branchService
+          ? { ...service, ...branchService, id: branchService.id || branchService._id || service.id }
+          : service
+      })
+    : SERVICE_TYPES
 
   return (
     <AppLayout>
@@ -146,7 +154,7 @@ export default function QueueRegistration() {
                 <h3 className="text-lg font-bold text-slate-800 mb-1">Select service</h3>
                 <p className="text-sm text-slate-500 mb-5">What do you need help with today?</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(selectedBranch?.services?.filter(s => s.active) || SERVICE_TYPES).map(s => (
+                  {availableServices.filter((s) => s.active !== false).map(s => (
                     <button key={s.id || s._id} type="button" onClick={() => set('serviceId', s.id || s._id)}
                       className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${form.serviceId === (s.id || s._id) ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200' : 'border-slate-200 hover:border-slate-300'
                         }`}>
