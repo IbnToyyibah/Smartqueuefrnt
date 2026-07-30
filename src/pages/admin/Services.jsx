@@ -14,6 +14,7 @@ export default function Services() {
   const [branches, setBranches] = useState([])
   const [selectedBranch, setSelectedBranch] = useState('')
   const branchId = selectedBranch || user?.branch?._id || user?.branch
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (user?.role !== 'super_admin') return
@@ -31,18 +32,54 @@ export default function Services() {
       setServices([])
       return
     }
-    branchApi.get(branchId).then(({ branch: b }) => setServices(b.services || [])).catch(console.error).finally(() => setLoading(false))
+    setLoading(true)
+    branchApi.getServices(branchId)
+      .then(({ services: list }) => setServices(list || []))
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [branchId])
   const toggle = (id) => setServices(prev => prev.map(s => s.id===id ? {...s, active:!s.active} : s))
   const setDuration = (id, val) => setServices(prev => prev.map(s => s.id===id ? {...s, duration:Number(val)} : s))
+  const addService = () => setServices(prev => ([...prev, { id: `tmp-${Date.now()}`, name: 'New Service', duration: 10, active: true }]))
   const handleSave = async () => {
-    await branchApi.update(branchId, { services })
-    notify('success', 'Services saved', 'Service list updated.')
+    setSaving(true)
+    try {
+      const existing = new Set((await branchApi.getServices(branchId)).services.map((s) => s.id))
+      const current = new Set(services.map((s) => s.id).filter((id) => !String(id).startsWith('tmp-')))
+
+      for (const service of services) {
+        if (String(service.id).startsWith('tmp-')) {
+          await branchApi.createService(branchId, {
+            name: service.name,
+            description: service.description || '',
+            duration: service.duration,
+            is_active: service.active,
+          })
+          continue
+        }
+        await branchApi.updateService(service.id, {
+          name: service.name,
+          description: service.description || '',
+          duration: service.duration,
+          is_active: service.active,
+        })
+      }
+      for (const serviceId of existing) {
+        if (!current.has(serviceId)) {
+          await branchApi.removeService(serviceId)
+        }
+      }
+      const { services: refreshed } = await branchApi.getServices(branchId)
+      setServices(refreshed || [])
+      notify('success', 'Services saved', 'Service list updated.')
+    } finally {
+      setSaving(false)
+    }
   }
   return (
     <AppLayout>
       <PageHeader title="Services" subtitle="Manage services offered at this branch" breadcrumb="Branch Admin"
-        action={<Button icon={<MdSave size={15}/>} onClick={handleSave} className="bg-violet-600 hover:bg-violet-700">Save Changes</Button>}/>
+        action={<div className="flex gap-2"><Button variant="secondary" icon={<MdAdd size={15}/>} onClick={addService}>Add Service</Button><Button loading={saving} icon={<MdSave size={15}/>} onClick={handleSave} className="bg-violet-600 hover:bg-violet-700">Save Changes</Button></div>}/>
       {user?.role === 'super_admin' && branches.length > 0 && (
         <div className="mb-5 max-w-xs">
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">Select branch</label>
@@ -81,9 +118,14 @@ export default function Services() {
                 <span className="text-xs text-slate-400">min</span>
               </div>
               <div className="col-span-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.active?'bg-emerald-50 text-emerald-600':'bg-slate-100 text-slate-400'}`}>
-                  {s.active?'Active':'Off'}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.active?'bg-emerald-50 text-emerald-600':'bg-slate-100 text-slate-400'}`}>
+                    {s.active?'Active':'Off'}
+                  </span>
+                  <button type="button" onClick={() => setServices(prev => prev.filter(x => x.id !== s.id))} className="text-rose-500 hover:text-rose-700">
+                    <MdDelete size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
