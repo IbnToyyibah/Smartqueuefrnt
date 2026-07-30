@@ -27,12 +27,12 @@ const normalizeBranchList = (payload) => {
 }
 
 const toSnakeCaseQueueJoin = (data = {}) => ({
-  branch_id: data.branch_id || data.branchId || '',
-  service_id: data.service_id || data.serviceId || '',
-  time_slot: data.time_slot || data.timeSlot || '',
-  name: data.name || '',
-  email: data.email || '',
-  phone: data.phone || '',
+  branch_id: data.branch_id || data.branchId || undefined,
+  service_id: data.service_id || data.serviceId || undefined,
+  time_slot: data.time_slot || data.timeSlot || undefined,
+  name: data.name || undefined,
+  email: data.email || undefined,
+  phone: data.phone || undefined,
   notify_channel: data.notify_channel || data.notifyChannel || 'both',
 })
 
