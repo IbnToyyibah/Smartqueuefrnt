@@ -36,6 +36,31 @@ const toSnakeCaseQueueJoin = (data = {}) => ({
   notify_channel: data.notify_channel || data.notifyChannel || 'both',
 })
 
+const normalizeTicket = (ticket) => {
+  if (!ticket) return ticket
+  return {
+    ...ticket,
+    _id: ticket._id || ticket.id,
+    id: ticket.id || ticket._id,
+    ticketNumber: ticket.ticketNumber || ticket.ticket_number,
+    ticket_number: ticket.ticket_number || ticket.ticketNumber,
+    estimatedWait: ticket.estimatedWait || ticket.estimated_wait,
+    estimated_wait: ticket.estimated_wait || ticket.estimatedWait,
+    qrCode: ticket.qrCode || ticket.qr_code,
+    qr_code: ticket.qr_code || ticket.qrCode,
+    notifyChannel: ticket.notifyChannel || ticket.notify_channel,
+    notify_channel: ticket.notify_channel || ticket.notifyChannel,
+  }
+}
+
+const normalizeTicketPayload = (payload) => {
+  if (!payload?.ticket) return payload
+  return {
+    ...payload,
+    ticket: normalizeTicket(payload.ticket),
+  }
+}
+
 const headers = (extra = {}) => ({
   'Content-Type': 'application/json',
   ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
@@ -78,20 +103,32 @@ export const authApi = {
 
 // Queue
 export const queueApi = {
-  join: (data) => post('/queue/join', toSnakeCaseQueueJoin(data)),
-  myTicket: () => get('/queue/my'),
-  history: () => get('/queue/history'),
-  branchQueue: (id, sts) => get(`/queue/branch/${id}${sts ? `?status=${sts}` : ''}`),
-  getTicket: (id) => get(`/queue/${id}`),
-  lookup: (ticketNum) => get(`/queue/lookup/${ticketNum}`),
-  callNext: (id, body) => post(`/queue/${id}/call`, body),
-  serve: (id, body) => post(`/queue/${id}/serve`, body),
-  noShow: (id, body) => post(`/queue/${id}/noshow`, body),
-  transfer: (id, body) => post(`/queue/${id}/transfer`, body),
-  checkin: (id) => post(`/queue/${id}/checkin`),
-  skip: (id, body) => post(`/queue/${id}/skip`, body),
-  recall: (id) => post(`/queue/${id}/recall`),
-  rate: (id, body) => patch(`/queue/${id}/rate`, body),
+  join: async (data) => normalizeTicketPayload(await post('/queue/join', toSnakeCaseQueueJoin(data))),
+  myTicket: async () => normalizeTicketPayload(await get('/queue/my')),
+  history: async () => {
+    const res = await get('/queue/history')
+    return {
+      ...res,
+      tickets: Array.isArray(res.tickets) ? res.tickets.map(normalizeTicket) : res.tickets,
+    }
+  },
+  branchQueue: async (id, sts) => {
+    const res = await get(`/queue/branch/${id}${sts ? `?status=${sts}` : ''}`)
+    return {
+      ...res,
+      tickets: Array.isArray(res.tickets) ? res.tickets.map(normalizeTicket) : res.tickets,
+    }
+  },
+  getTicket: async (id) => normalizeTicketPayload(await get(`/queue/${id}`)),
+  lookup: async (ticketNum) => normalizeTicketPayload(await get(`/queue/lookup/${ticketNum}`)),
+  callNext: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/call`, body)),
+  serve: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/serve`, body)),
+  noShow: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/noshow`, body)),
+  transfer: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/transfer`, body)),
+  checkin: async (id) => normalizeTicketPayload(await post(`/queue/${id}/checkin`)),
+  skip: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/skip`, body)),
+  recall: async (id) => normalizeTicketPayload(await post(`/queue/${id}/recall`)),
+  rate: async (id, body) => normalizeTicketPayload(await patch(`/queue/${id}/rate`, body)),
   stats: (id, days) => get(`/queue/stats/${id}?days=${days || 7}`),
 }
 
