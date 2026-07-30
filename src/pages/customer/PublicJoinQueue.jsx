@@ -119,6 +119,28 @@ export default function PublicJoinQueue() {
   }
 
   const selectedBranch = branches.find(b => b._id === form.branchId)
+  const availableServices = selectedBranch
+    ? SERVICE_ICONS && (selectedBranch.services || []).length
+      ? (() => {
+          const merged = new Map()
+          ;(selectedBranch.services || []).forEach((service) => {
+            const id = service.id || service._id
+            merged.set(id, { ...service, id })
+          })
+          Object.entries(SERVICE_ICONS).forEach(([id, icon]) => {
+            if (!merged.has(id)) {
+              merged.set(id, { id, name: id === 'buying' ? 'Buying' : id, duration: 10, active: true, icon })
+            }
+          })
+          return Array.from(merged.values())
+        })()
+      : Object.keys(SERVICE_ICONS).map((id) => ({
+          id,
+          name: id === 'buying' ? 'Buying' : id,
+          duration: 10,
+          active: true,
+        }))
+    : []
 
   /** Check if the selected branch has an expired/suspended subscription */
   const branchExpired = selectedBranch && !canJoinBranch(selectedBranch)
@@ -152,7 +174,7 @@ export default function PublicJoinQueue() {
     } finally { setSubmitting(false) }
   }
 
-  const activeServices = selectedBranch?.services?.filter(s => s.active) || []
+  const activeServices = availableServices.filter((s) => s.active !== false)
 
   return (
     <PublicLayout>
