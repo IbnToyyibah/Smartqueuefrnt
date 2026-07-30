@@ -89,6 +89,8 @@ export default function PublicJoinQueue() {
 
   const [branches, setBranches] = useState([])
   const [loadingB, setLoadingB] = useState(true)
+  const [loadingServices, setLoadingServices] = useState(false)
+  const [services, setServices] = useState([])
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [ticket, setTicket] = useState(null)
@@ -113,34 +115,42 @@ export default function PublicJoinQueue() {
       .finally(() => setLoadingB(false))
   }, [])
 
+  useEffect(() => {
+    if (!form.branchId) {
+      setServices([])
+      return
+    }
+
+    let alive = true
+    setLoadingServices(true)
+    setServices([])
+    setForm((f) => ({ ...f, serviceId: '' }))
+
+    branchApi.getServices(form.branchId)
+      .then(({ services: list }) => {
+        if (!alive) return
+        setServices(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        if (!alive) return
+        notify('error', 'Could not load services', 'Please select another branch or refresh.')
+      })
+      .finally(() => {
+        if (alive) setLoadingServices(false)
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [form.branchId, notify])
+
   const set = (k, v) => {
     setForm(f => ({ ...f, [k]: v }))
     setErrors(e => { const n = { ...e }; delete n[k]; return n })
   }
 
   const selectedBranch = branches.find(b => b._id === form.branchId)
-  const availableServices = selectedBranch
-    ? SERVICE_ICONS && (selectedBranch.services || []).length
-      ? (() => {
-          const merged = new Map()
-          ;(selectedBranch.services || []).forEach((service) => {
-            const id = service.id || service._id
-            merged.set(id, { ...service, id })
-          })
-          Object.entries(SERVICE_ICONS).forEach(([id, icon]) => {
-            if (!merged.has(id)) {
-              merged.set(id, { id, name: id === 'buying' ? 'Buying' : id, duration: 10, active: true, icon })
-            }
-          })
-          return Array.from(merged.values())
-        })()
-      : Object.keys(SERVICE_ICONS).map((id) => ({
-          id,
-          name: id === 'buying' ? 'Buying' : id,
-          duration: 10,
-          active: true,
-        }))
-    : []
+  const availableServices = services
 
   /** Check if the selected branch has an expired/suspended subscription */
   const branchExpired = selectedBranch && !canJoinBranch(selectedBranch)
@@ -255,22 +265,32 @@ export default function PublicJoinQueue() {
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                     {selectedBranch?.name} — Choose Service
                   </p>
-                  <div className="flex flex-col gap-2 mb-5">
-                    {activeServices.map(s => (
-                      <button key={s.id} type="button" onClick={() => set('serviceId', s.id)}
-                        className={`flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${form.serviceId === s.id ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'
-                          }`}>
-                        <span className="text-xl shrink-0">{SERVICE_ICONS[s.id] ?? '📋'}</span>
-                        <div className="flex-1">
-                          <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
-                          <p className="text-xs text-slate-400 flex items-center gap-0.5">
-                            <MdAccessTime size={10} /> ~{s.duration} min
-                          </p>
-                        </div>
-                        {form.serviceId === s.id && <MdCheckCircle size={18} className="text-violet-600 shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
+                  {loadingServices ? (
+                    <div className="flex justify-center py-8">
+                      <div className="w-7 h-7 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : activeServices.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
+                      No services available for this branch yet.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mb-5">
+                      {activeServices.map(s => (
+                        <button key={s.id} type="button" onClick={() => set('serviceId', s.id)}
+                          className={`flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${form.serviceId === s.id ? 'border-violet-500 bg-violet-50' : 'border-slate-200 hover:border-violet-300'
+                            }`}>
+                          <span className="text-xl shrink-0">{SERVICE_ICONS[s.id] ?? '📋'}</span>
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
+                            <p className="text-xs text-slate-400 flex items-center gap-0.5">
+                              <MdAccessTime size={10} /> ~{s.duration} min
+                            </p>
+                          </div>
+                          {form.serviceId === s.id && <MdCheckCircle size={18} className="text-violet-600 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {errors.serviceId && <p className="text-xs text-red-500 mb-3">{errors.serviceId}</p>}
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preferred Time</p>

@@ -43,6 +43,8 @@ export default function QueueRegistration() {
 
   const [branches, setBranches] = useState([])
   const [loadingB, setLoadingB] = useState(true)
+  const [loadingServices, setLoadingServices] = useState(false)
+  const [services, setServices] = useState([])
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
@@ -58,6 +60,35 @@ export default function QueueRegistration() {
       .catch(() => notify('error', 'Failed to load branches', 'Please refresh.'))
       .finally(() => setLoadingB(false))
   }, [])
+
+  useEffect(() => {
+    if (!form.branchId) {
+      setServices([])
+      return
+    }
+
+    let alive = true
+    setLoadingServices(true)
+    setServices([])
+    setForm((f) => ({ ...f, serviceId: '' }))
+
+    branchApi.getServices(form.branchId)
+      .then(({ services: list }) => {
+        if (!alive) return
+        setServices(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        if (!alive) return
+        notify('error', 'Failed to load services', 'Please try another branch or refresh.')
+      })
+      .finally(() => {
+        if (alive) setLoadingServices(false)
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [form.branchId, notify])
 
   const set = (k, v) => {
     setForm(f => ({ ...f, [k]: v }))
@@ -94,15 +125,7 @@ export default function QueueRegistration() {
 
   const selectedBranch = branches.find(b => b._id === form.branchId)
   const selectedService = SERVICE_TYPES.find(s => s.id === form.serviceId)
-    || (selectedBranch?.services || []).find(s => s.id === form.serviceId)
-  const availableServices = selectedBranch
-    ? SERVICE_TYPES.map((service) => {
-        const branchService = (selectedBranch.services || []).find((s) => (s.id || s._id) === service.id)
-        return branchService
-          ? { ...service, ...branchService, id: branchService.id || branchService._id || service.id }
-          : service
-      })
-    : SERVICE_TYPES
+    || services.find(s => s.id === form.serviceId)
 
   return (
     <AppLayout>
@@ -149,24 +172,34 @@ export default function QueueRegistration() {
             )}
 
             {/* Step 1 — Service */}
-            {step === 1 && (
-              <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
-                <h3 className="text-lg font-bold text-slate-800 mb-1">Select service</h3>
-                <p className="text-sm text-slate-500 mb-5">What do you need help with today?</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {availableServices.filter((s) => s.active !== false).map(s => (
-                    <button key={s.id || s._id} type="button" onClick={() => set('serviceId', s.id || s._id)}
+              {step === 1 && (
+                <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">Select service</h3>
+                  <p className="text-sm text-slate-500 mb-5">What do you need help with today?</p>
+                {loadingServices ? (
+                  <div className="flex justify-center py-10">
+                    <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
+                    No services available for this branch yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {services.map(s => (
+                      <button key={s.id || s._id} type="button" onClick={() => set('serviceId', s.id || s._id)}
                       className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all ${form.serviceId === (s.id || s._id) ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200' : 'border-slate-200 hover:border-slate-300'
                         }`}>
-                      <span className="text-2xl">{SERVICE_ICONS[s.id] ?? '📋'}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm">{s.name || s.label}</p>
-                        <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1"><MdAccessTime size={11} />~{s.duration} min</p>
-                      </div>
-                      {form.serviceId === (s.id || s._id) && <MdCheckCircle size={18} className="text-violet-600 shrink-0" />}
-                    </button>
-                  ))}
-                </div>
+                        <span className="text-2xl">{SERVICE_ICONS[s.id] ?? '📋'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm">{s.name || s.label}</p>
+                          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1"><MdAccessTime size={11} />~{s.duration} min</p>
+                        </div>
+                        {form.serviceId === (s.id || s._id) && <MdCheckCircle size={18} className="text-violet-600 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {errors.serviceId && <p className="text-xs text-red-500 mt-2">{errors.serviceId}</p>}
                 <div className="mt-5">
                   <label className="block text-xs font-semibold text-slate-700 mb-2">Preferred time slot</label>
