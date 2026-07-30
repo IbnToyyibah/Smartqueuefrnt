@@ -139,6 +139,15 @@ export const branchApi = {
     const res = await get(`/branches/${id}`)
     return { ...res, branch: normalizeBranch(res.branch) }
   },
+  getServices: async (id) => {
+    const res = await get(`/branches/${id}/services`)
+    return {
+      ...res,
+      services: Array.isArray(res.services)
+        ? res.services.map((service) => ({ ...service, id: service.id || service._id }))
+        : res.services,
+    }
+  },
   create: async (data) => {
     const res = await post('/branches', data)
     return { ...res, branch: normalizeBranch(res.branch) }
