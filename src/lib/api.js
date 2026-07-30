@@ -9,6 +9,23 @@ const BASE = RAW_BASE || (import.meta.env.DEV ? 'http://127.0.0.1:5001/api' : '/
 
 const getToken = () => localStorage.getItem('sq_token')
 
+const normalizeBranch = (branch) => {
+  if (!branch) return branch
+  return {
+    ...branch,
+    _id: branch._id || branch.id,
+    id: branch.id || branch._id,
+  }
+}
+
+const normalizeBranchList = (payload) => {
+  if (!payload?.branches) return payload
+  return {
+    ...payload,
+    branches: payload.branches.map(normalizeBranch),
+  }
+}
+
 const headers = (extra = {}) => ({
   'Content-Type': 'application/json',
   ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
@@ -70,11 +87,23 @@ export const queueApi = {
 
 // Branches
 export const branchApi = {
-  list: () => get('/branches'),
-  get: (id) => get(`/branches/${id}`),
-  create: (data) => post('/branches', data),
-  update: (id, data) => patch(`/branches/${id}`, data),
-  updateSubscription: (id, data) => patch(`/branches/${id}/subscription`, data),
+  list: async () => normalizeBranchList(await get('/branches')),
+  get: async (id) => {
+    const res = await get(`/branches/${id}`)
+    return { ...res, branch: normalizeBranch(res.branch) }
+  },
+  create: async (data) => {
+    const res = await post('/branches', data)
+    return { ...res, branch: normalizeBranch(res.branch) }
+  },
+  update: async (id, data) => {
+    const res = await patch(`/branches/${id}`, data)
+    return { ...res, branch: normalizeBranch(res.branch) }
+  },
+  updateSubscription: async (id, data) => {
+    const res = await patch(`/branches/${id}/subscription`, data)
+    return { ...res, branch: normalizeBranch(res.branch) }
+  },
   remove: (id) => del(`/branches/${id}`),
   counters: (id) => get(`/branches/${id}/counters`),
 }
