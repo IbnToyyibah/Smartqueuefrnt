@@ -18,6 +18,7 @@ const SERVICE_ICONS = {
   account: '🏦',
   loans: '💳',
   consultation: '🩺',
+  buying: '🛒',
   pharmacy: '💊',
   xray: '🩻',
   laboratory: '🔬',
