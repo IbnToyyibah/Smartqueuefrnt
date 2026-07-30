@@ -17,6 +17,7 @@ import Button from '../../components/ui/Button'
 const SERVICE_ICONS = {
   general: '💬', account: '🏦', loans: '💳',
   consultation: '🩺', document: '📄', complaints: '📢',
+  buying: '🛒',
 }
 const TIME_SLOTS = [
   'As soon as possible', '9:00 AM – 10:00 AM', '10:00 AM – 11:00 AM',

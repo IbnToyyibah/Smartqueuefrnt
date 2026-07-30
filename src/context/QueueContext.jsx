@@ -12,6 +12,7 @@ export const SERVICE_TYPES = [
   { id: 'consultation', label: 'Medical Consultation', duration: 15, color: 'green' },
   { id: 'document', label: 'Document Processing', duration: 10, color: 'yellow' },
   { id: 'complaints', label: 'Complaints & Feedback', duration: 10, color: 'red' },
+  { id: 'buying', label: 'Buying', duration: 10, color: 'emerald' },
 ]
 
 export function QueueProvider({ children }) {
