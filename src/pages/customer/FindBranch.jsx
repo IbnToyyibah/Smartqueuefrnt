@@ -4,17 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdLocationOn, MdSearch, MdArrowForward, MdPhone, MdEmail,
   MdLocalHospital, MdAccountBalance, MdStorefront, MdGavel, MdBusiness,
-  MdCheckCircle, MdBlock,
+  MdCheckCircle, MdBlock, MdSchool,
 } from 'react-icons/md'
 import { branchApi } from '../../lib/api'
 import PublicLayout from '../../components/layout/PublicLayout'
 
 /* ── Category tabs ── */
 const CATS = [
-  { value: 'healthcare', label: 'Healthcare', icon: <MdLocalHospital size={14} />, color: 'bg-blue-600' },
-  { value: 'retail', label: 'Retail', icon: <MdStorefront size={14} />, color: 'bg-emerald-600' },
-  { value: 'government', label: 'Government', icon: <MdGavel size={14} />, color: 'bg-violet-600' },
-  { value: 'banking', label: 'Banking', icon: <MdAccountBalance size={14} />, color: 'bg-amber-600' },
+  { value: 'healthcare', label: 'Hospital', icon: <MdLocalHospital size={14} />, color: 'bg-blue-600' },
+  { value: 'retail', label: 'Retail Stores', icon: <MdStorefront size={14} />, color: 'bg-emerald-600' },
+  { value: 'government', label: 'Government Hub', icon: <MdGavel size={14} />, color: 'bg-violet-600' },
+  { value: 'education', label: 'Education', icon: <MdSchool size={14} />, color: 'bg-amber-600' },
   { value: 'all', label: 'All', icon: null, color: 'bg-slate-600' },
 ]
 
@@ -22,26 +22,38 @@ const CAT_ICON = {
   healthcare: { icon: <MdLocalHospital size={24} className="text-blue-500" />, bg: 'bg-blue-50' },
   retail: { icon: <MdStorefront size={24} className="text-emerald-500" />, bg: 'bg-emerald-50' },
   government: { icon: <MdGavel size={24} className="text-violet-500" />, bg: 'bg-violet-50' },
-  banking: { icon: <MdAccountBalance size={24} className="text-amber-500" />, bg: 'bg-amber-50' },
+  education: { icon: <MdSchool size={24} className="text-amber-500" />, bg: 'bg-amber-50' },
   other: { icon: <MdBusiness size={24} className="text-slate-400" />, bg: 'bg-slate-50' },
 }
 
 const DEPT_COLOR = {
+  // Hospital
   consultation: 'bg-blue-50 text-blue-700 border-blue-200',
   pharmacy: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   xray: 'bg-purple-50 text-purple-700 border-purple-200',
   laboratory: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   emergency: 'bg-red-50 text-red-600 border-red-200',
-  biscuits: 'bg-orange-50 text-orange-700 border-orange-200',
-  sweet: 'bg-pink-50 text-pink-700 border-pink-200',
-  chocolate: 'bg-amber-50 text-amber-700 border-amber-200',
-  complaints: 'bg-red-50 text-red-600 border-red-200',
+
+  // Retail Stores
+  buying: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  returns: 'bg-blue-50 text-blue-700 border-blue-200',
+  loyalty: 'bg-amber-50 text-amber-700 border-amber-200',
+  pickup: 'bg-purple-50 text-purple-700 border-purple-200',
   complaint: 'bg-red-50 text-red-600 border-red-200',
+
+  // Government Hub
+  verification: 'bg-violet-50 text-violet-700 border-violet-200',
+  registration: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   payment: 'bg-green-50 text-green-700 border-green-200',
-  account: 'bg-blue-50 text-blue-700 border-blue-200',
-  loans: 'bg-violet-50 text-violet-700 border-violet-200',
-  payments: 'bg-green-50 text-green-700 border-green-200',
   inquiry: 'bg-slate-50 text-slate-600 border-slate-200',
+  document: 'bg-blue-50 text-blue-700 border-blue-200',
+
+  // Education
+  enrollment: 'bg-amber-50 text-amber-700 border-amber-200',
+  advisory: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  tuition: 'bg-green-50 text-green-700 border-green-200',
+  transcripts: 'bg-purple-50 text-purple-700 border-purple-200',
+  financial_aid: 'bg-blue-50 text-blue-700 border-blue-200',
 }
 
 function DeptTag({ service }) {

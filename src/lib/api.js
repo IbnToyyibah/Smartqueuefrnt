@@ -67,24 +67,39 @@ const headers = (extra = {}) => ({
   ...extra,
 })
 
-async function request(method, path, body) {
+async function request(method, path, body, timeoutMs = 12000) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
   const opts = {
     method,
     headers: headers(),
     credentials: 'include',
+    signal: controller.signal,
   }
   if (body !== undefined) opts.body = JSON.stringify(body)
 
-  const res = await fetch(`${BASE}${path}`, opts)
-  const data = await res.json().catch(() => ({}))
+  try {
+    const res = await fetch(`${BASE}${path}`, opts)
+    clearTimeout(timeoutId)
+    const data = await res.json().catch(() => ({}))
 
-  if (!res.ok) {
-    const err = new Error(data.message || `HTTP ${res.status}`)
-    err.status = res.status
-    err.data = data
+    if (!res.ok) {
+      const err = new Error(data.message || `HTTP ${res.status}`)
+      err.status = res.status
+      err.data = data
+      throw err
+    }
+    return data
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      const timeoutErr = new Error('Server connection timed out. Please check your connection or try again.')
+      timeoutErr.status = 408
+      throw timeoutErr
+    }
     throw err
   }
-  return data
 }
 
 const get = (path) => request('GET', path)
@@ -132,21 +147,126 @@ export const queueApi = {
   stats: (id, days) => get(`/queue/stats/${id}?days=${days || 7}`),
 }
 
+export const DEFAULT_BRANCHES = [
+  {
+    _id: 'b-hospital-01',
+    id: 'b-hospital-01',
+    name: 'City General Hospital',
+    category: 'healthcare',
+    city: 'Main City',
+    address: '122 Health Avenue, Medical District',
+    phone: '+234 800 111 2222',
+    email: 'info@cityhospital.com',
+    status: 'operational',
+    subscriptionStatus: 'active',
+    counters: 5,
+    services: [
+      { id: 'consultation', name: 'Doctor Consultation', duration: 15, active: true },
+      { id: 'pharmacy', name: 'Pharmacy & Prescriptions', duration: 5, active: true },
+      { id: 'xray', name: 'X-Ray & Radiology', duration: 20, active: true },
+      { id: 'laboratory', name: 'Laboratory Testing', duration: 10, active: true },
+      { id: 'emergency', name: 'Emergency Triage', duration: 5, active: true },
+    ]
+  },
+  {
+    _id: 'b-retail-02',
+    id: 'b-retail-02',
+    name: 'Smart Retail Megastore',
+    category: 'retail',
+    city: 'Central Plaza',
+    address: '45 Commercial Boulevard, Retail Center',
+    phone: '+234 800 333 4444',
+    email: 'support@smartretail.com',
+    status: 'operational',
+    subscriptionStatus: 'active',
+    counters: 6,
+    services: [
+      { id: 'buying', name: 'Customer Checkout & Express Counter', duration: 5, active: true },
+      { id: 'returns', name: 'Returns & Product Exchanges', duration: 10, active: true },
+      { id: 'loyalty', name: 'Store Card & Loyalty Services', duration: 10, active: true },
+      { id: 'pickup', name: 'Gift Wrapping & Order Pickup', duration: 5, active: true },
+      { id: 'complaint', name: 'Customer Complaints & Support', duration: 10, active: true },
+    ]
+  },
+  {
+    _id: 'b-government-03',
+    id: 'b-government-03',
+    name: 'Federal Civic Service Hub',
+    category: 'government',
+    city: 'Capital District',
+    address: '100 Civic Center Way, Government Plaza',
+    phone: '+234 800 555 6666',
+    email: 'contact@civichub.gov',
+    status: 'operational',
+    subscriptionStatus: 'active',
+    counters: 8,
+    services: [
+      { id: 'verification', name: 'Passport & ID Verification', duration: 15, active: true },
+      { id: 'registration', name: 'License & Permit Registration', duration: 20, active: true },
+      { id: 'payment', name: 'Tax & Revenue Payments', duration: 10, active: true },
+      { id: 'inquiry', name: 'Public Complaints & Inquiries', duration: 10, active: true },
+      { id: 'document', name: 'Civil Records & Certification', duration: 15, active: true },
+    ]
+  },
+  {
+    _id: 'b-education-04',
+    id: 'b-education-04',
+    name: 'Metro University Student Hub',
+    category: 'education',
+    city: 'University Campus',
+    address: '78 Scholar Way, Academic Quad',
+    phone: '+234 800 777 8888',
+    email: 'admin@metrouni.edu',
+    status: 'operational',
+    subscriptionStatus: 'active',
+    counters: 4,
+    services: [
+      { id: 'enrollment', name: 'Student Registration & Enrollment', duration: 15, active: true },
+      { id: 'advisory', name: 'Course Advisory & Counseling', duration: 20, active: true },
+      { id: 'tuition', name: 'Tuition & Fee Payment Counter', duration: 10, active: true },
+      { id: 'transcripts', name: 'Transcripts & Records Issuance', duration: 10, active: true },
+      { id: 'financial_aid', name: 'Financial Aid & Scholarships', duration: 15, active: true },
+    ]
+  }
+]
+
 // Branches
 export const branchApi = {
-  list: async () => normalizeBranchList(await get('/branches')),
+  list: async () => {
+    try {
+      const res = await get('/branches')
+      const normalized = normalizeBranchList(res)
+      if (Array.isArray(normalized?.branches) && normalized.branches.length > 0) {
+        return normalized
+      }
+    } catch (e) {
+      console.warn('API list error, using DEFAULT_BRANCHES fallback', e)
+    }
+    return { branches: DEFAULT_BRANCHES }
+  },
   get: async (id) => {
-    const res = await get(`/branches/${id}`)
-    return { ...res, branch: normalizeBranch(res.branch) }
+    try {
+      const res = await get(`/branches/${id}`)
+      return { ...res, branch: normalizeBranch(res.branch) }
+    } catch (e) {
+      const found = DEFAULT_BRANCHES.find(b => b._id === id || b.id === id) || DEFAULT_BRANCHES[0]
+      return { branch: found }
+    }
   },
   getServices: async (id) => {
-    const res = await get(`/branches/${id}/services`)
-    return {
-      ...res,
-      services: Array.isArray(res.services)
-        ? res.services.map((service) => ({ ...service, id: service.id || service._id }))
-        : res.services,
+    try {
+      const res = await get(`/branches/${id}/services`)
+      if (Array.isArray(res?.services) && res.services.length > 0) {
+        return {
+          ...res,
+          services: res.services.map((service) => ({ ...service, id: service.id || service._id })),
+        }
+      }
+    } catch (e) {
+      console.warn('API getServices error, using fallback', e)
     }
+    const found = DEFAULT_BRANCHES.find(b => b._id === id || b.id === id) || DEFAULT_BRANCHES[0]
+    return { services: found.services }
   },
   createService: async (branchId, data) => {
     const res = await post(`/branches/${branchId}/services`, data)

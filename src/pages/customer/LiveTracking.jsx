@@ -97,11 +97,13 @@ export default function LiveTracking() {
     sock.on('queue:called', handler)
     sock.on('queue:served', handler)
     sock.on('queue:noshow', handler)
+    sock.on('queue:checkedin', handler)
     sock.on('queue:updated', handler)
     return () => {
       sock.off('queue:called', handler)
       sock.off('queue:served', handler)
       sock.off('queue:noshow', handler)
+      sock.off('queue:checkedin', handler)
       sock.off('queue:updated', handler)
     }
   }, [ticket])

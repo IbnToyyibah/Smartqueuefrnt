@@ -15,6 +15,10 @@ export default function Services() {
   const [selectedBranch, setSelectedBranch] = useState('')
   const branchId = selectedBranch || user?.branch?._id || user?.branch
   const [saving, setSaving] = useState(false)
+  const toSafeNumber = (value, fallback) => {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : fallback
+  }
 
   useEffect(() => {
     if (user?.role !== 'super_admin') return
@@ -39,7 +43,7 @@ export default function Services() {
       .finally(() => setLoading(false))
   }, [branchId])
   const toggle = (id) => setServices(prev => prev.map(s => s.id===id ? {...s, active:!s.active} : s))
-  const setDuration = (id, val) => setServices(prev => prev.map(s => s.id===id ? {...s, duration:Number(val)} : s))
+  const setDuration = (id, val) => setServices(prev => prev.map(s => s.id===id ? {...s, duration:toSafeNumber(val, s.duration)} : s))
   const addService = () => setServices(prev => ([...prev, { id: `tmp-${Date.now()}`, name: 'New Service', duration: 10, active: true }]))
   const handleSave = async () => {
     setSaving(true)

@@ -1,10 +1,10 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdBusiness, MdAdd, MdEdit, MdDelete, MdSearch,
   MdLocationOn, MdPeople, MdDashboard, MdCheckCircle,
   MdLocalHospital, MdAccountBalance, MdStorefront, MdGavel,
-  MdBlock,
+  MdBlock, MdSchool,
 } from 'react-icons/md'
 import { useNotifications } from '../../context/NotificationContext'
 import { branchApi } from '../../lib/api'
@@ -18,18 +18,18 @@ import StatCard from '../../components/ui/StatCard'
 /* ── Category config ── */
 const CATEGORIES = [
   { value: 'all', label: 'All', icon: null },
-  { value: 'healthcare', label: 'Healthcare', icon: <MdLocalHospital size={14} /> },
-  { value: 'government', label: 'Government', icon: <MdGavel size={14} /> },
-  { value: 'retail', label: 'Retail', icon: <MdStorefront size={14} /> },
-  { value: 'banking', label: 'Banking', icon: <MdAccountBalance size={14} /> },
+  { value: 'healthcare', label: 'Hospital', icon: <MdLocalHospital size={14} /> },
+  { value: 'retail', label: 'Retail Stores', icon: <MdStorefront size={14} /> },
+  { value: 'government', label: 'Government Hub', icon: <MdGavel size={14} /> },
+  { value: 'education', label: 'Education', icon: <MdSchool size={14} /> },
   { value: 'other', label: 'Other', icon: <MdBusiness size={14} /> },
 ]
 
 const CATEGORY_ICON = {
   healthcare: <MdLocalHospital size={18} className="text-blue-500" />,
-  government: <MdGavel size={18} className="text-violet-500" />,
   retail: <MdStorefront size={18} className="text-emerald-500" />,
-  banking: <MdAccountBalance size={18} className="text-amber-500" />,
+  government: <MdGavel size={18} className="text-violet-500" />,
+  education: <MdSchool size={18} className="text-amber-500" />,
   other: <MdBusiness size={18} className="text-slate-400" />,
 }
 
@@ -50,6 +50,10 @@ const BLANK = {
 }
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500'
+const toSafeNumber = (value, fallback) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
 
 const getSubscriptionLabel = (branch) => {
   const status = branch.subscriptionStatus || 'active'
@@ -254,7 +258,7 @@ export default function AllBranches() {
         <div key={f.k}>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">{f.label}</label>
           <input type={f.type} value={form[f.k]} placeholder={f.ph}
-            onChange={e => set(f.k, f.type === 'number' ? Number(e.target.value) : e.target.value)}
+            onChange={e => set(f.k, f.type === 'number' ? toSafeNumber(e.target.value, form[f.k]) : e.target.value)}
             className={`${inputCls} ${errors[f.k] ? 'border-red-300' : ''}`} />
           {errors[f.k] && <p className="text-xs text-red-500 mt-1">{errors[f.k]}</p>}
         </div>
