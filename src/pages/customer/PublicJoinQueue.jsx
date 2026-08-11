@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -14,26 +14,33 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
 const SERVICE_ICONS = {
-  general: '💬',
-  account: '🏦',
-  loans: '💳',
+  // Hospital
   consultation: '🩺',
-  buying: '🛒',
   pharmacy: '💊',
   xray: '🩻',
   laboratory: '🔬',
   emergency: '🚨',
-  payments: '💰',
-  payment: '💰',
-  registration: '📝',
-  document: '📄',
-  complaints: '📢',
+
+  // Retail Stores
+  buying: '🛒',
+  returns: '📦',
+  loyalty: '💳',
+  pickup: '🎁',
   complaint: '📢',
-  biscuits: '🍪',
-  sweet: '🍬',
-  chocolate: '🍫',
-  inquiry: '❓',
+
+  // Government Hub
   verification: '✅',
+  registration: '📝',
+  payment: '💰',
+  inquiry: '❓',
+  document: '📄',
+
+  // Education
+  enrollment: '🎓',
+  advisory: '📚',
+  tuition: '💵',
+  transcripts: '📜',
+  financial_aid: '📑',
 }
 const TIME_SLOTS = [
   'As soon as possible', '9:00 AM – 10:00 AM', '10:00 AM – 11:00 AM',
@@ -87,11 +94,26 @@ export default function PublicJoinQueue() {
   const { notify } = useNotifications()
   const [searchParams] = useSearchParams()
 
-  const [branches, setBranches] = useState([])
-  const [loadingB, setLoadingB] = useState(true)
+  const [branches, setBranches] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('sq_branches_cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch (e) {
+      console.warn('Branch cache parse error', e)
+    }
+    return []
+  })
+
+  const [loadingB, setLoadingB] = useState(() => branches.length === 0)
   const [loadingServices, setLoadingServices] = useState(false)
   const [services, setServices] = useState([])
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(() => {
+    const preSelected = searchParams.get('branch')
+    return (preSelected && branches.some(b => b._id === preSelected)) ? 1 : 0
+  })
   const [submitting, setSubmitting] = useState(false)
   const [ticket, setTicket] = useState(null)
   const [errors, setErrors] = useState({})
@@ -102,17 +124,34 @@ export default function PublicJoinQueue() {
   })
 
   useEffect(() => {
+    let alive = true
+
     branchApi.list()
       .then(({ branches: b }) => {
+        if (!alive || !Array.isArray(b)) return
         setBranches(b)
-        // If branch was pre-selected via URL param and it's valid, skip to step 1
+        try {
+          sessionStorage.setItem('sq_branches_cache', JSON.stringify(b))
+        } catch (e) {}
+
         const preSelected = searchParams.get('branch')
         if (preSelected && b.find(br => br._id === preSelected)) {
-          setStep(1)
+          setStep(s => (s === 0 ? 1 : s))
         }
       })
-      .catch(() => notify('error', 'Could not load branches', 'Please refresh.'))
-      .finally(() => setLoadingB(false))
+      .catch((err) => {
+        if (!alive) return
+        if (branches.length === 0) {
+          notify('error', 'Could not load branches', err.message || 'Please refresh.')
+        }
+      })
+      .finally(() => {
+        if (alive) setLoadingB(false)
+      })
+
+    return () => {
+      alive = false
+    }
   }, [])
 
   useEffect(() => {
@@ -121,10 +160,16 @@ export default function PublicJoinQueue() {
       return
     }
 
+    const branchObj = branches.find(b => b._id === form.branchId)
+    if (branchObj && Array.isArray(branchObj.services) && branchObj.services.length > 0) {
+      const normalized = branchObj.services.map(s => ({ ...s, id: s.id || s._id }))
+      setServices(normalized)
+      setLoadingServices(false)
+      return
+    }
+
     let alive = true
     setLoadingServices(true)
-    setServices([])
-    setForm((f) => ({ ...f, serviceId: '' }))
 
     branchApi.getServices(form.branchId)
       .then(({ services: list }) => {
@@ -142,12 +187,7 @@ export default function PublicJoinQueue() {
     return () => {
       alive = false
     }
-  }, [form.branchId, notify])
-
-  const set = (k, v) => {
-    setForm(f => ({ ...f, [k]: v }))
-    setErrors(e => { const n = { ...e }; delete n[k]; return n })
-  }
+  }, [form.branchId, branches])
 
   const selectedBranch = branches.find(b => b._id === form.branchId)
   const availableServices = services
@@ -167,6 +207,15 @@ export default function PublicJoinQueue() {
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
+  }
+
+  const set = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }))
+    setErrors(e => {
+      const next = { ...e }
+      delete next[k]
+      return next
+    })
   }
 
   const next = () => { if (validate()) setStep(s => s + 1) }

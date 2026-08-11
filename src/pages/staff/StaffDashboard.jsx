@@ -1,108 +1,152 @@
-﻿import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
-  MdSkipNext, MdCheckCircle, MdPause, MdPlayArrow,
-  MdRefresh, MdFastForward, MdSwapHoriz,
-  MdPeople, MdDashboard, MdWarning, MdSend,
-  MdEmail, MdSms, MdChat,
+  MdAccessTime,
+  MdBarChart,
+  MdCheckCircle,
+  MdDashboard,
+  MdEmail,
+  MdPeople,
+  MdPause,
+  MdPlayArrow,
+  MdRefresh,
+  MdSend,
+  MdSkipNext,
+  MdSms,
+  MdSwapHoriz,
+  MdWarning,
 } from 'react-icons/md'
 import { useQueue } from '../../context/QueueContext'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
-import { queueApi, counterApi, notifApi } from '../../lib/api'
+import { notifApi, queueApi } from '../../lib/api'
 import AppLayout from '../../components/layout/AppLayout'
-import PageHeader from '../../components/layout/PageHeader'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
-const STATUS_COLOR = {
-  waiting: 'bg-amber-100 text-amber-700',
-  checked_in: 'bg-blue-100 text-blue-700',
-  called: 'bg-indigo-100 text-indigo-700',
-  serving: 'bg-violet-100 text-violet-700',
-  served: 'bg-green-100 text-green-700',
-  noshow: 'bg-red-100 text-red-500',
-  skipped: 'bg-slate-100 text-slate-500',
+const TABS = ['Overview', 'Queue', 'Agents', 'Counters']
+const STATUS_TONE = {
+  waiting: 'bg-amber-500',
+  checked_in: 'bg-sky-500',
+  called: 'bg-indigo-500',
+  serving: 'bg-emerald-500',
+  served: 'bg-emerald-700',
+  noshow: 'bg-rose-500',
+  skipped: 'bg-slate-500',
 }
 
-function KPICard({ label, value, sub, color = 'violet' }) {
-  const colors = { violet: 'bg-violet-600', indigo: 'bg-indigo-600', green: 'bg-emerald-600', amber: 'bg-amber-500' }
+const fmtWait = (m) => `${Math.max(0, Number(m) || 0)}m`
+
+function Stat({ label, value, sub }) {
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm flex items-center gap-4">
-      <div className={`w-2 self-stretch rounded-full ${colors[color]}`} />
-      <div>
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-2xl font-extrabold text-slate-800 leading-tight">{value}</p>
-        {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-      </div>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-200/70">{label}</p>
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+      {sub && <p className="mt-1 text-xs text-cyan-100/60">{sub}</p>}
     </div>
   )
 }
 
-function ActionCard({ title, subtitle, icon, gradient, onClick, disabled }) {
+function SectionTitle({ title, meta }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-white bg-gradient-to-br ${gradient} shadow-sm hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
-    >
-      <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-        {icon}
+    <div className="flex items-end justify-between gap-3 mb-3">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-200/60">Terminal</p>
+        <h2 className="text-lg font-extrabold text-white">{title}</h2>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold leading-tight">{title}</p>
-        <p className="text-[11px] text-white/80 mt-0.5 leading-tight">{subtitle}</p>
-      </div>
-      <span className="text-white/50 group-hover:text-white/80 transition-colors">→</span>
-    </button>
+      {meta && <p className="text-xs text-cyan-100/60">{meta}</p>}
+    </div>
   )
 }
 
+function TerminalCard({ children, className = '' }) {
+  return <div className={`rounded-[28px] border border-white/10 bg-slate-950/80 shadow-2xl ${className}`}>{children}</div>
+}
+
 export default function StaffDashboard() {
-  const { queue, counters, stats, loading, loadBranchData,
-    callNext, markServed, toggleCounter, transferTicket } = useQueue()
+  const { queue, counters, stats, loading, loadBranchData, callNext, markServed, toggleCounter, transferTicket } = useQueue()
   const { user } = useAuth()
   const { notify } = useNotifications()
 
+  const [tab, setTab] = useState('Overview')
   const [busy, setBusy] = useState(false)
-  const [transferOpen, setTransferOpen] = useState(false)
-  const [transferTarget, setTransferTarget] = useState(null)
   const [messageText, setMessageText] = useState('')
   const [messageChannel, setMessageChannel] = useState('auto')
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null)
 
   const branchId = user?.branch?._id || user?.branch
-  const myCounter = counters.find(c => c.agent?._id === user?._id || c.agent === user?._id) || counters[0] || null
+  const myCounter = counters.find((c) => c.agent?._id === user?._id || c.agent === user?._id) || counters[0] || null
 
   useEffect(() => {
     if (branchId) loadBranchData(branchId)
   }, [branchId, loadBranchData])
 
-  const wrap = async (fn, ...args) => { setBusy(true); try { return await fn(...args) } finally { setBusy(false) } }
-
-  const activeQueue = queue.filter(t => ['waiting', 'checked_in', 'called', 'serving'].includes(t.status))
-  const servingTicket = queue.find(t => String(t.counter?._id || t.counter) === String(myCounter?._id) && ['called', 'serving'].includes(t.status))
-  const waitingCount = queue.filter(t => ['waiting', 'checked_in'].includes(t.status)).length
-  const servedToday = stats?.totalServed ?? 0
-  const avgWait = stats?.avgWaitTime ?? 0
-  const preferredChannel = servingTicket?.notifyChannel || servingTicket?.user?.notifyChannel || 'email'
-  const resolvedChannel = messageChannel === 'auto' ? preferredChannel : messageChannel
-  const channelMeta = {
-    email: { label: 'Email', icon: <MdEmail size={14} />, tone: 'bg-sky-50 text-sky-700 border-sky-200' },
-    sms: { label: 'SMS', icon: <MdSms size={14} />, tone: 'bg-amber-50 text-amber-700 border-amber-200' },
-    both: { label: 'Both', icon: <MdChat size={14} />, tone: 'bg-violet-50 text-violet-700 border-violet-200' },
+  const wrap = async (fn, ...args) => {
+    setBusy(true)
+    try {
+      return await fn(...args)
+    } finally {
+      setBusy(false)
+    }
   }
+
+  const orderedQueue = useMemo(
+    () => [...queue].sort((a, b) => (a.position || 0) - (b.position || 0)),
+    [queue],
+  )
+  const activeQueue = orderedQueue.filter((t) => ['waiting', 'checked_in', 'called', 'serving'].includes(t.status))
+  const nowServing = orderedQueue.find((t) => ['called', 'serving'].includes(t.status)) || null
+  const waitingCount = queue.filter((t) => ['waiting', 'checked_in'].includes(t.status)).length
+  const servedToday = stats?.totalServed ?? queue.filter((t) => t.status === 'served').length
+  const avgWait = Math.round(stats?.avgWaitTime ?? 0)
+  const noShowCount = queue.filter((t) => t.status === 'noshow').length
+  const completionRate = queue.length ? Math.round((servedToday / queue.length) * 100) : 0
+
+  const liveTicker = [
+    `WAITING ${waitingCount}`,
+    `SERVING ${orderedQueue.filter((t) => t.status === 'serving').length}`,
+    `CALLED ${orderedQueue.filter((t) => t.status === 'called').length}`,
+    `NOSHOW ${noShowCount}`,
+    `COUNTERS ${counters.length}`,
+  ]
+
+  const agents = useMemo(() => {
+    const seed = counters.map((counter, idx) => ({
+      id: counter._id,
+      name: counter.agent?.name || `Agent ${String(idx + 1).padStart(2, '0')}`,
+      role: counter.agent?.role || 'staff',
+      status: counter.status === 'active' ? 'available' : counter.status === 'paused' ? 'break' : 'offline',
+      current: orderedQueue.find((t) => String(t.counter?._id || t.counter) === String(counter._id) && ['called', 'serving'].includes(t.status))?.ticketNumber || 'Idle',
+      target: 12 + idx,
+      done: queue.filter((t) => t.status === 'served' && (t.counter?._id || t.counter) === counter._id).length,
+    }))
+    return seed.length ? seed.slice(0, 8) : []
+  }, [counters, orderedQueue, queue])
+
+  const displayCounters = useMemo(() => {
+    return counters.slice(0, 8).map((counter, idx) => ({
+      id: counter._id,
+      name: counter.name || `Counter ${idx + 1}`,
+      status: counter.status || 'closed',
+      agent: counter.agent?.name || 'Unassigned',
+      service: counter.service?.name || counter.service?.label || 'General',
+      served: queue.filter((t) => t.status === 'served' && (t.counter?._id || t.counter) === counter._id).length,
+      active: queue.find((t) => String(t.counter?._id || t.counter) === String(counter._id) && ['called', 'serving'].includes(t.status))?.ticketNumber || 'Idle',
+    }))
+  }, [counters, queue])
 
   const handleCallNext = async () => {
     const t = await wrap(callNext, myCounter?._id)
-    if (t) notify('info', `Calling ${t.ticketNumber}`, `${t.name} â€” ${t.service?.label}`)
+    if (t) notify('info', `Calling ${t.ticketNumber}`, `${t.name} - ${t.service?.label}`)
     else notify('warning', 'Queue empty', 'No customers waiting.')
   }
 
   const handleComplete = async () => {
-    if (!servingTicket) return
-    await wrap(markServed, servingTicket._id, myCounter?._id)
-    notify('success', 'Completed', `${servingTicket.ticketNumber} served.`)
+    if (!nowServing) return
+    await wrap(markServed, nowServing._id, myCounter?._id)
+    notify('success', 'Completed', `${nowServing.ticketNumber} served.`)
   }
 
   const handlePauseResume = async () => {
@@ -113,26 +157,13 @@ export default function StaffDashboard() {
   }
 
   const handleRecall = async () => {
-    if (!servingTicket) return
+    if (!nowServing) return
     try {
       setBusy(true)
-      await queueApi.recall(servingTicket._id)
-      notify('info', 'Recalled', `${servingTicket.ticketNumber} recalled.`)
+      await queueApi.recall(nowServing._id)
+      notify('info', 'Recalled', `${nowServing.ticketNumber} recalled.`)
     } catch {
       notify('error', 'Recall failed', '')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleSkip = async (ticketId) => {
-    const t = queue.find(q => q._id === ticketId)
-    try {
-      setBusy(true)
-      await queueApi.skip(ticketId, { counterId: myCounter?._id })
-      notify('warning', 'Skipped', `${t?.ticketNumber} moved to end.`)
-    } catch {
-      notify('error', 'Skip failed', '')
     } finally {
       setBusy(false)
     }
@@ -141,23 +172,23 @@ export default function StaffDashboard() {
   const handleTransfer = async (toCounterId) => {
     if (!transferTarget) return
     await wrap(transferTicket, transferTarget._id, toCounterId)
-    const c = counters.find(c => c._id === toCounterId)
-    notify('info', 'Transferred', `${transferTarget.ticketNumber} â†’ ${c?.name}`)
+    const c = counters.find((item) => item._id === toCounterId)
+    notify('info', 'Transferred', `${transferTarget.ticketNumber} -> ${c?.name}`)
     setTransferOpen(false)
     setTransferTarget(null)
   }
 
   const handleSendMessage = async () => {
-    if (!servingTicket || !messageText.trim()) return
+    if (!nowServing || !messageText.trim()) return
     try {
       setBusy(true)
-      await notifApi.sendToTicket(servingTicket._id, {
+      await notifApi.sendToTicket(nowServing._id, {
         title: 'Message from SmartQueue Staff',
         message: messageText.trim(),
         type: 'info',
-        channel: resolvedChannel,
+        channel: messageChannel,
       })
-      notify('success', 'Message sent', `Sent via ${resolvedChannel.toUpperCase()} to ${servingTicket.ticketNumber}.`)
+      notify('success', 'Message sent', `${nowServing.ticketNumber} updated.`)
       setMessageText('')
     } catch (err) {
       notify('error', 'Send failed', err.message || 'Could not send message.')
@@ -166,232 +197,279 @@ export default function StaffDashboard() {
     }
   }
 
+  const queueRows = activeQueue.slice(0, 12)
+
   return (
     <AppLayout>
-      <PageHeader
-        title="Counter Dashboard"
-        subtitle={`${myCounter?.name ?? 'Counter'} â€” ${user?.branch?.name ?? ''}`}
-        breadcrumb="Staff"
-      />
-
-      {!branchId && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 mb-5">
-          <p className="font-semibold">No branch assigned</p>
-          <p className="text-sm mt-1 text-amber-700">
-            This dashboard needs a branch assignment before it can load live queue data.
-          </p>
-        </div>
-      )}
-
-      {branchId && !myCounter && (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-800 mb-5">
-          <p className="font-semibold">No counter assigned</p>
-          <p className="text-sm mt-1 text-blue-700">
-            Your account is connected to this branch, but no active counter is assigned yet.
-          </p>
-        </div>
-      )}
-
-      {branchId && myCounter && queue.length === 0 && !loading && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-700 mb-5">
-          <p className="font-semibold">No live queue data yet</p>
-          <p className="text-sm mt-1 text-slate-600">
-            The dashboard is connected, but there are no tickets loaded for this branch right now.
-          </p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <KPICard label="Customers Waiting" value={waitingCount} color="amber" sub="In queue now" />
-        <KPICard label="Now Serving" value={servingTicket?.ticketNumber ?? 'â€”'} color="violet" sub="Active ticket" />
-        <KPICard label="Served Today" value={servedToday} color="green" sub="Completed" />
-        <KPICard label="Average Wait" value={`${avgWait} min`} color="indigo" sub="Current avg" />
-      </div>
-
-      <div className="grid items-stretch grid-cols-1 xl:grid-cols-[1fr_0.9fr] gap-4 mb-6">
-        <div className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Quick Actions</p>
-              <p className="text-xs text-slate-500 mt-1">Fast controls for the active queue.</p>
+      <div className="terminal-mono min-h-[calc(100vh-7rem)] rounded-[32px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_100%)] p-4 sm:p-6 text-slate-100">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-[28px] border border-white/10 bg-white/5 px-4 py-3 overflow-hidden">
+            <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.35em] text-cyan-200/70">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300"><MdDashboard size={18} /></span>
+              <span>SmartQueue Terminal</span>
+              <span className="ml-auto text-cyan-100/40">Live</span>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-              <MdDashboard size={14} className="text-violet-500" />
-              {myCounter?.name || 'Counter'}
-            </span>
+            <div className="mt-2 overflow-hidden whitespace-nowrap text-xs text-cyan-100/70">
+              <div className="inline-block animate-[marquee_18s_linear_infinite]">
+                {liveTicker.concat(liveTicker).map((item, i) => (
+                  <span key={`${item}-${i}`} className="mr-8">{item}</span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <ActionCard title="Call Next" subtitle="Move next ticket" icon={<MdSkipNext size={18} />} gradient="from-violet-600 to-indigo-600" onClick={handleCallNext} disabled={waitingCount === 0 || busy} />
-            <ActionCard title="Complete" subtitle="Finish service" icon={<MdCheckCircle size={18} />} gradient="from-emerald-500 to-emerald-600" onClick={handleComplete} disabled={!servingTicket || busy} />
-            <ActionCard title={myCounter?.status === 'active' ? 'Pause' : 'Resume'} subtitle="Toggle counter" icon={myCounter?.status === 'active' ? <MdPause size={18} /> : <MdPlayArrow size={18} />} gradient="from-amber-500 to-orange-500" onClick={handlePauseResume} disabled={busy} />
-            <ActionCard title="Recall" subtitle="Call again" icon={<MdRefresh size={18} />} gradient="from-sky-500 to-blue-600" onClick={handleRecall} disabled={!servingTicket || busy} />
-            <ActionCard title="Skip" subtitle="Push back" icon={<MdFastForward size={18} />} gradient="from-slate-600 to-slate-700" onClick={() => servingTicket && handleSkip(servingTicket._id)} disabled={!servingTicket || busy} />
-            <ActionCard title="Transfer" subtitle="Move queue" icon={<MdSwapHoriz size={18} />} gradient="from-indigo-500 to-violet-600" onClick={() => { if (servingTicket) { setTransferTarget(servingTicket); setTransferOpen(true) } }} disabled={!servingTicket || busy} />
-          </div>
-        </div>
-
-        <div className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Customer Messaging</p>
-              <p className="text-xs text-slate-500 mt-1">Message the active customer from the counter.</p>
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-              <MdSend size={14} className="text-violet-500" />
-              {servingTicket ? servingTicket.ticketNumber : 'No ticket'}
-            </span>
-          </div>
-
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 flex-1 flex flex-col">
-            <p className="text-sm font-semibold text-slate-800">Send a message to the current customer</p>
-            <p className="text-xs text-slate-500 mt-1">Delivery follows the customer preference automatically.</p>
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${channelMeta[preferredChannel]?.tone || channelMeta.email.tone}`}>
-                {channelMeta[preferredChannel]?.icon || channelMeta.email.icon}
-                {channelMeta[preferredChannel]?.label || 'Email'}
-              </span>
-              <span className="text-xs text-slate-500">{servingTicket ? servingTicket.ticketNumber : 'No active ticket'}</span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { value: 'auto', label: 'Auto' },
-                { value: 'sms', label: 'SMS' },
-                { value: 'email', label: 'Email' },
-                { value: 'both', label: 'Both' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setMessageChannel(option.value)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    messageChannel === option.value
-                      ? 'border-violet-500 bg-violet-600 text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              rows={3}
-              placeholder={servingTicket ? 'Type the message you want to send...' : 'Pick an active ticket to send this message.'}
-              className="mt-2.5 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 flex-1 min-h-0"
-              disabled={false}
-            />
-            <div className="mt-2.5 flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">
-                {messageText.trim().length > 0 ? `${messageText.trim().length} characters` : 'Write a short update for the customer.'}
-              </p>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!servingTicket || !messageText.trim() || busy}
-                className="bg-violet-600 hover:bg-violet-700"
+          <div className="flex flex-wrap gap-2">
+            {TABS.map((item) => (
+              <button
+                key={item}
+                onClick={() => setTab(item)}
+                className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] transition-colors ${
+                  tab === item
+                    ? 'border-cyan-300 bg-cyan-400/15 text-cyan-100'
+                    : 'border-white/10 bg-white/5 text-cyan-100/60 hover:bg-white/10'
+                }`}
               >
-                Send
-              </Button>
-            </div>
+                {item}
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
 
-      {servingTicket && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 flex items-center gap-4 rounded-2xl bg-violet-600 p-4 text-white"
-        >
-          <div>
-            <p className="text-xs text-violet-200">Now Serving</p>
-            <p className="text-3xl font-extrabold tracking-widest">{servingTicket.ticketNumber}</p>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-semibold">{servingTicket.name}</p>
-            <p className="text-xs text-violet-200">{servingTicket.service?.label}</p>
-          </div>
-          <div className="ml-auto">
-            <Badge variant="called" size="md">{myCounter?.name}</Badge>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-        <div className="grid grid-cols-12 gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-          <div className="col-span-2">Token</div>
-          <div className="col-span-4">Name / Service</div>
-          <div className="col-span-3">Status</div>
-          <div className="col-span-2">Time</div>
-          <div className="col-span-1 text-right">Act.</div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-          </div>
-        ) : activeQueue.length === 0 ? (
-          <div className="py-12 text-center text-slate-400">
-            <MdPeople size={36} className="mx-auto mb-2 opacity-30" />
-            <p className="font-semibold text-slate-600">Queue is empty</p>
-          </div>
-        ) : (
-          <AnimatePresence>
-            {activeQueue.map((t, i) => (
+          <AnimatePresence mode="wait">
+            {tab === 'Overview' && (
               <motion.div
-                key={t._id}
-                layout
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="grid grid-cols-12 gap-3 items-center border-b border-slate-50 px-5 py-3.5 last:border-0 hover:bg-slate-50/60"
+                key="overview"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="grid gap-4"
               >
-                <div className="col-span-2">
-                  <span className="font-mono font-extrabold text-slate-800">{t.ticketNumber}</span>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Stat label="Waiting" value={waitingCount} sub="In queue now" />
+                  <Stat label="Serving" value={nowServing?.ticketNumber ?? '—'} sub="Active ticket" />
+                  <Stat label="Served" value={servedToday} sub="Completed today" />
+                  <Stat label="Wait" value={`${avgWait}m`} sub={`Completion ${completionRate}%`} />
                 </div>
-                <div className="col-span-4 min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-800">{t.name}</p>
-                  <p className="truncate text-xs text-slate-400">{t.service?.label}</p>
-                </div>
-                <div className="col-span-3">
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${STATUS_COLOR[t.status] ?? STATUS_COLOR.waiting}`}>
-                    {t.status.replace('_', ' ').toUpperCase()}
-                  </span>
-                </div>
-                <div className="col-span-2 text-xs text-slate-400">{t.estimatedWait}m</div>
-                <div className="col-span-1 flex justify-end">
-                  {t.status === 'waiting' && (
-                    <button
-                      onClick={() => { setTransferTarget(t); setTransferOpen(true) }}
-                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                    >
-                      <MdSwapHoriz size={16} />
-                    </button>
-                  )}
+
+                <div className="grid gap-4 xl:grid-cols-[1.25fr_0.9fr]">
+                  <TerminalCard className="p-4">
+                    <SectionTitle title="Live Queue" meta="Priority sort" />
+                    <div className="overflow-hidden rounded-2xl border border-white/10">
+                      <div className="grid grid-cols-12 bg-white/5 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-cyan-100/50">
+                        <div className="col-span-2">Token</div>
+                        <div className="col-span-4">Guest</div>
+                        <div className="col-span-3">Service</div>
+                        <div className="col-span-2">Wait</div>
+                        <div className="col-span-1 text-right">Act</div>
+                      </div>
+                      <div className="max-h-[420px] overflow-auto divide-y divide-white/8">
+                        {queueRows.map((t) => (
+                          <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-white/5">
+                            <div className="col-span-2 font-black text-white">{t.ticketNumber}</div>
+                            <div className="col-span-4 min-w-0">
+                              <div className="truncate font-semibold text-white">{t.name}</div>
+                              <div className="truncate text-[11px] text-cyan-100/50">{t.position ? `Position ${t.position}` : 'Queue'}</div>
+                            </div>
+                            <div className="col-span-3 min-w-0 text-cyan-100/70 truncate">{t.service?.label || t.service?.name}</div>
+                            <div className={`col-span-2 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-rose-300' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                              {fmtWait(t.estimatedWait)}
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <span className={`h-2.5 w-2.5 rounded-full ${STATUS_TONE[t.status] ?? 'bg-slate-400'}`} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </TerminalCard>
+
+                  <div className="grid gap-4">
+                    <TerminalCard className="p-4">
+                      <SectionTitle title="Counter Actions" meta={myCounter?.name || 'Unassigned'} />
+                      <div className="grid gap-2">
+                        {[
+                          { title: 'Call Next', icon: <MdSkipNext size={18} />, onClick: handleCallNext, active: waitingCount > 0 },
+                          { title: 'Complete', icon: <MdCheckCircle size={18} />, onClick: handleComplete, active: !!nowServing },
+                          { title: myCounter?.status === 'active' ? 'Pause' : 'Resume', icon: myCounter?.status === 'active' ? <MdPause size={18} /> : <MdPlayArrow size={18} />, onClick: handlePauseResume, active: true },
+                          { title: 'Recall', icon: <MdRefresh size={18} />, onClick: handleRecall, active: !!nowServing },
+                        ].map((a) => (
+                          <button
+                            key={a.title}
+                            onClick={a.onClick}
+                            disabled={!a.active || busy}
+                            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-colors hover:bg-white/10 disabled:opacity-40"
+                          >
+                            <span className="flex items-center gap-3">
+                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-200">{a.icon}</span>
+                              <span className="font-bold text-white">{a.title}</span>
+                            </span>
+                            <span className="text-cyan-100/40">→</span>
+                          </button>
+                        ))}
+                      </div>
+                    </TerminalCard>
+
+                    <TerminalCard className="p-4">
+                      <SectionTitle title="Now Serving" meta={nowServing ? nowServing.name : 'Idle'} />
+                      {nowServing ? (
+                        <div className="rounded-3xl border border-cyan-300/10 bg-cyan-400/10 p-4">
+                          <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-200/60">Ticket</p>
+                          <p className="mt-1 text-4xl font-black text-white">{nowServing.ticketNumber}</p>
+                          <p className="mt-2 text-sm text-cyan-100/70">{nowServing.service?.label || nowServing.service?.name}</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-cyan-100/50">
+                          No active ticket.
+                        </div>
+                      )}
+                    </TerminalCard>
+                  </div>
                 </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
-      </div>
+            )}
 
-      {queue.filter(t => t.status === 'noshow').length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">No-Shows Today</p>
-          <div className="flex flex-col gap-2">
-            {queue.filter(t => t.status === 'noshow').map(t => (
-              <div key={t._id} className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm">
-                <MdWarning size={14} className="shrink-0 text-red-400" />
-                <span className="font-mono font-bold text-slate-700">{t.ticketNumber}</span>
-                <span className="text-slate-500">{t.name}</span>
-                <span className="ml-auto text-xs text-slate-400">{t.service?.label}</span>
-              </div>
-            ))}
-          </div>
+            {tab === 'Queue' && (
+              <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <TerminalCard className="p-4">
+                  <SectionTitle title="Queue" meta={`${activeQueue.length} tickets`} />
+                  <div className="overflow-hidden rounded-2xl border border-white/10">
+                    <div className="grid grid-cols-12 bg-white/5 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-cyan-100/50">
+                      <div className="col-span-2">Ticket</div>
+                      <div className="col-span-4">Guest</div>
+                      <div className="col-span-2">Service</div>
+                      <div className="col-span-1">Wait</div>
+                      <div className="col-span-1">Status</div>
+                      <div className="col-span-2 text-right">Action</div>
+                    </div>
+                    <div className="divide-y divide-white/8">
+                      {activeQueue.map((t) => (
+                        <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-white/5">
+                          <div className="col-span-2 font-black text-white">{t.ticketNumber}</div>
+                          <div className="col-span-4 min-w-0">
+                            <div className="truncate font-semibold text-white">{t.name}</div>
+                            <div className="text-[11px] text-cyan-100/50">{t.position ? `Pos ${t.position}` : ''}</div>
+                          </div>
+                          <div className="col-span-2 truncate text-cyan-100/70">{t.service?.label || t.service?.name}</div>
+                          <div className={`col-span-1 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-rose-300' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                            {fmtWait(t.estimatedWait)}
+                          </div>
+                          <div className="col-span-1">
+                            <Badge variant={t.status} size="sm" className="capitalize">
+                              {t.status}
+                            </Badge>
+                          </div>
+                          <div className="col-span-2 flex justify-end gap-2">
+                            {t.status === 'waiting' && (
+                              <button
+                                onClick={() => { setTransferTarget(t); setTransferOpen(true) }}
+                                className="rounded-lg border border-white/10 bg-white/5 p-2 text-cyan-100/70 hover:bg-white/10"
+                              >
+                                <MdSwapHoriz size={16} />
+                              </button>
+                            )}
+                            {(t.status === 'called' || t.status === 'serving') && (
+                              <button
+                                onClick={() => markServed(t._id, myCounter?._id)}
+                                className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                              >
+                                <MdCheckCircle size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </TerminalCard>
+              </motion.div>
+            )}
+
+            {tab === 'Agents' && (
+              <motion.div key="agents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <TerminalCard className="p-4">
+                  <SectionTitle title="Agents" meta="8 active slots" />
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {(agents.length ? agents : Array.from({ length: 8 }).map((_, i) => ({
+                      id: `agent-${i}`,
+                      name: `Agent ${String(i + 1).padStart(2, '0')}`,
+                      role: 'staff',
+                      status: i % 3 === 0 ? 'available' : i % 3 === 1 ? 'break' : 'offline',
+                      current: i % 2 === 0 ? `A0${i + 1}` : 'Idle',
+                      target: 12 + i,
+                      done: 6 + i,
+                    }))).map((agent, i) => {
+                      const pct = Math.min(100, Math.round((agent.done / Math.max(1, agent.target)) * 100))
+                      return (
+                        <div key={agent.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-black text-white">{agent.name}</p>
+                              <p className="text-[11px] text-cyan-100/50">{agent.role}</p>
+                            </div>
+                            <span className={`h-2.5 w-2.5 rounded-full ${i % 3 === 0 ? 'bg-emerald-400' : i % 3 === 1 ? 'bg-amber-400' : 'bg-rose-400'}`} />
+                          </div>
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-200/50">Current</p>
+                            <p className="mt-1 font-bold text-white">{agent.current}</p>
+                          </div>
+                          <div className="mt-4">
+                            <div className="mb-1 flex items-center justify-between text-[11px] text-cyan-100/50">
+                              <span>Target</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-white/10">
+                              <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                          <button className="mt-4 w-full rounded-2xl border border-cyan-300/10 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-400/15">
+                            Call Next
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </TerminalCard>
+              </motion.div>
+            )}
+
+            {tab === 'Counters' && (
+              <motion.div key="counters" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <TerminalCard className="p-4">
+                  <SectionTitle title="Counters" meta={`${displayCounters.length} online slots`} />
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {displayCounters.map((counter) => (
+                      <div key={counter.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-white">{counter.name}</p>
+                            <p className="text-[11px] text-cyan-100/50">{counter.service}</p>
+                          </div>
+                          <Badge variant={counter.status === 'active' ? 'success' : counter.status === 'paused' ? 'warning' : 'closed'} size="sm">
+                            {counter.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Agent</p>
+                            <p className="mt-1 font-bold text-white">{counter.agent}</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Active</p>
+                            <p className="mt-1 font-bold text-white">{counter.active}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Served Today</p>
+                          <p className="mt-1 text-2xl font-black text-white">{counter.served}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TerminalCard>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
 
       <Modal
         open={transferOpen}
@@ -403,7 +481,7 @@ export default function StaffDashboard() {
           Move <strong>{transferTarget?.name}</strong> to another active counter.
         </p>
         <div className="flex flex-col gap-2">
-          {counters.filter(c => c.status === 'active' && c._id !== myCounter?._id).map(c => (
+          {counters.filter((c) => c.status === 'active' && c._id !== myCounter?._id).map((c) => (
             <button
               key={c._id}
               onClick={() => handleTransfer(c._id)}
@@ -415,8 +493,6 @@ export default function StaffDashboard() {
           ))}
         </div>
       </Modal>
-
     </AppLayout>
   )
 }
-

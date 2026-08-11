@@ -15,6 +15,10 @@ import PageHeader from '../../components/layout/PageHeader'
 import Button from '../../components/ui/Button'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const toSafeNumber = (value, fallback) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
 
 export default function BranchSettings() {
   const { notify } = useNotifications()
@@ -61,7 +65,7 @@ export default function BranchSettings() {
     setServices((prev) => prev.map((s) => s.id === id ? { ...s, active: !s.active } : s))
 
   const updateDuration = (id, val) =>
-    setServices((prev) => prev.map((s) => s.id === id ? { ...s, duration: Number(val) } : s))
+    setServices((prev) => prev.map((s) => s.id === id ? { ...s, duration: toSafeNumber(val, s.duration) } : s))
 
   return (
     <AppLayout>

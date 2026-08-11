@@ -5,6 +5,10 @@ import { useNotifications } from '../../context/NotificationContext'
 import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/layout/PageHeader'
 import Button from '../../components/ui/Button'
+const toSafeNumber = (value, fallback) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
 
 function Section({ icon, title, children }) {
   return (
@@ -127,7 +131,7 @@ export default function SystemSettings() {
               <div key={f.k}>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">{f.label}</label>
                 <input type="number" min={f.min} max={f.max} value={realtime[f.k]}
-                  onChange={e => setRealtime(r => ({...r, [f.k]: Number(e.target.value)}))}
+                  onChange={e => setRealtime(r => ({...r, [f.k]: toSafeNumber(e.target.value, r[f.k])}))}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
               </div>
             ))}

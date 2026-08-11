@@ -7,10 +7,19 @@ import PublicLayout from '../../components/layout/PublicLayout'
 
 const TILES = [
   {
+    to: '/find-branch',
+    icon: <MdLocationOn size={30} />,
+    label: '1. Find Branch',
+    desc: 'Locate a branch near you.',
+    bg: 'bg-emerald-600',
+    hover: 'hover:border-emerald-400',
+    text: 'text-emerald-600',
+  },
+  {
     to: '/join-queue',
     icon: <MdQrCode2 size={30} />,
-    label: 'Join Queue',
-    desc: 'Register virtually. No account needed.',
+    label: '2. Join Queue',
+    desc: 'Register virtually for your service.',
     bg: 'bg-violet-600',
     hover: 'hover:border-violet-400',
     text: 'text-violet-600',
@@ -18,20 +27,11 @@ const TILES = [
   {
     to: '/track',
     icon: <MdTrackChanges size={30} />,
-    label: 'Track Queue',
-    desc: 'See your live position and estimated wait.',
+    label: '3. Get Ticket Number',
+    desc: 'View your live ticket number & position.',
     bg: 'bg-indigo-600',
     hover: 'hover:border-indigo-400',
     text: 'text-indigo-600',
-  },
-  {
-    to: '/find-branch',
-    icon: <MdLocationOn size={30} />,
-    label: 'Find Branch',
-    desc: 'Locate a branch near you.',
-    bg: 'bg-emerald-600',
-    hover: 'hover:border-emerald-400',
-    text: 'text-emerald-600',
   },
 ]
 

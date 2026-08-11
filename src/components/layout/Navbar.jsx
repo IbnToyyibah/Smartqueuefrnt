@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  MdNotifications,
-  MdLogout,
-  MdMenu,
-  MdClose,
-  MdDashboard,
-} from 'react-icons/md'
+import {MdNotifications, MdLogout, MdMenu, MdClose, MdDashboard,} from 'react-icons/md'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
 import Badge from '../ui/Badge'

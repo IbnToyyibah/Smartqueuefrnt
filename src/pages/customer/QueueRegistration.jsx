@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -41,8 +41,18 @@ export default function QueueRegistration() {
   const { notify } = useNotifications()
   const navigate = useNavigate()
 
-  const [branches, setBranches] = useState([])
-  const [loadingB, setLoadingB] = useState(true)
+  const [branches, setBranches] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('sq_branches_cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch (e) {}
+    return []
+  })
+
+  const [loadingB, setLoadingB] = useState(() => branches.length === 0)
   const [loadingServices, setLoadingServices] = useState(false)
   const [services, setServices] = useState([])
   const [step, setStep] = useState(0)
@@ -55,10 +65,25 @@ export default function QueueRegistration() {
   })
 
   useEffect(() => {
+    let alive = true
     branchApi.list()
-      .then(({ branches: b }) => setBranches(b))
-      .catch(() => notify('error', 'Failed to load branches', 'Please refresh.'))
-      .finally(() => setLoadingB(false))
+      .then(({ branches: b }) => {
+        if (!alive || !Array.isArray(b)) return
+        setBranches(b)
+        try {
+          sessionStorage.setItem('sq_branches_cache', JSON.stringify(b))
+        } catch (e) {}
+      })
+      .catch(() => {
+        if (alive && branches.length === 0) {
+          notify('error', 'Failed to load branches', 'Please refresh.')
+        }
+      })
+      .finally(() => {
+        if (alive) setLoadingB(false)
+      })
+
+    return () => { alive = false }
   }, [])
 
   useEffect(() => {
@@ -67,10 +92,16 @@ export default function QueueRegistration() {
       return
     }
 
+    const branchObj = branches.find(b => b._id === form.branchId)
+    if (branchObj && Array.isArray(branchObj.services) && branchObj.services.length > 0) {
+      const normalized = branchObj.services.map(s => ({ ...s, id: s.id || s._id }))
+      setServices(normalized)
+      setLoadingServices(false)
+      return
+    }
+
     let alive = true
     setLoadingServices(true)
-    setServices([])
-    setForm((f) => ({ ...f, serviceId: '' }))
 
     branchApi.getServices(form.branchId)
       .then(({ services: list }) => {
@@ -88,7 +119,7 @@ export default function QueueRegistration() {
     return () => {
       alive = false
     }
-  }, [form.branchId, notify])
+  }, [form.branchId, branches])
 
   const set = (k, v) => {
     setForm(f => ({ ...f, [k]: v }))

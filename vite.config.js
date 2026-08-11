@@ -30,6 +30,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    host: true,
     port: 5173,
     proxy: {
       // Forward all /api requests to the Express backend

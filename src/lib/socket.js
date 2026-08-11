@@ -50,11 +50,11 @@ export const leaveBranch = (branchId) => {
 }
 
 export const joinQueue = (queueId) => {
-  socket?.emit('join_queue', queueId)
+  socket?.emit('join:queue', queueId)
 }
 
 export const leaveQueue = (queueId) => {
-  socket?.emit('leave_queue', queueId)
+  socket?.emit('leave:queue', queueId)
 }
 
 export const joinUserRoom = (userId) => {

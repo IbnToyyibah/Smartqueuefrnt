@@ -1,10 +1,10 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdArrowForward, MdCheckCircle, MdAccessTime, MdPeople, MdBarChart,
   MdQrCode2, MdNotifications, MdDashboard, MdStar,
-  MdKeyboardArrowDown, MdKeyboardArrowUp, MdPhone, MdEmail,
+  MdKeyboardArrowDown, MdKeyboardArrowUp,
   MdLocalHospital, MdAccountBalance, MdStorefront, MdFlight, MdSchool,
 } from 'react-icons/md'
 import PublicLayout from '../components/layout/PublicLayout'
@@ -24,10 +24,10 @@ const FEATURES = [
 ]
 
 const HOW_IT_WORKS = [
-  { step: '01', title: 'Customer Joins Queue', desc: 'Scans a QR code, visits the web app, or uses a kiosk to register and receive a virtual ticket.' },
-  { step: '02', title: 'Staff Manages the List', desc: 'Counter agents see the live queue, call next, handle no-shows, and transfer customers.' },
-  { step: '03', title: 'Display Board Calls Number', desc: 'The real-time display board shows "Now Calling W001" so customers know when to approach.' },
-  { step: '04', title: 'Service Completed', desc: 'Agent marks served. Customer receives a satisfaction prompt. Data is logged instantly.' },
+  { step: '01', title: 'Find Branch', desc: 'Locate your nearest hospital, bank, or service branch in seconds.' },
+  { step: '02', title: 'Join Queue', desc: 'Scan a QR code or register online for your desired service.' },
+  { step: '03', title: 'Get Ticket Number', desc: 'Receive your live ticket number, position, and estimated wait time.' },
+  { step: '04', title: 'Track & Get Served', desc: 'Track your turn in real time and approach the counter when called.' },
 ]
 
 const INDUSTRIES = [
@@ -74,8 +74,8 @@ const FAQS = [
 ]
 
 const FOOTER_LINKS = {
-  COMPANY: ['About Us', 'Our Partners', 'Contact Us', 'Refund', 'Privacy Policy', 'Terms & Conditions', 'Security'],
-  'WHO USES SMARTQUEUE?': ['Banking Queue System', 'Educational Queue System', 'Hospital Queue System', 'Public Sector Queue System', 'Retail Queue System'],
+  COMPANY: ['About', 'Contact', 'Privacy', 'Terms'],
+  SOLUTIONS: ['Healthcare', 'Banking', 'Retail', 'Government'],
 }
 
 /* ── Accordion item ── */
@@ -137,15 +137,12 @@ export default function Landing() {
           {/* Left */}
           <motion.div {...fadeUp(0)} className="flex flex-col justify-center">
             <h1 className="text-4xl sm:text-4xl font-extrabold text-slate-900 leading-tight tracking-tight max-w-xl">
-              Queue Management System<br />That Ends the waits
+              Queue Management System<br />That Ends the Wait
             </h1>
-            <p className="mt-4 text-black text-sm sm:text-base leading-relaxed max-w-md">
-              SmartQueue is a cloud-based queue management system that replaces messy lines
-              and paper tokens with organised, trackable, appointment-and-walk-in queues.
-              Serve more customers, cut wait times, and give your team a real-time view of
-              every queue, across one branch or hundreds.
+            <p className="mt-3 text-slate-600 text-sm sm:text-base leading-relaxed max-w-md">
+              SmartQueue replaces physical lines with organised, trackable virtual queues to cut wait times and boost productivity.
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3">
+            <div className="mt-5 flex flex-col sm:flex-row flex-wrap gap-3">
               <Link to="/register"
                 className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 py-3 rounded-full transition-all text-sm">
                 <MdStar size={16} /> Start Free Trial
@@ -171,54 +168,23 @@ export default function Landing() {
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2 leading-tight">
               What Is a Queue<br />Management System?
             </h2>
-            <p className="text-slate-500 text-sm leading-relaxed max-w-lg">
-              A queue management system is software that controls how customers enter,
-              wait in, and are served through a line. Instead of a physical first-come-first-served
-              queue, customers join virtually through a kiosk, QR code, or mobile app, and are called
-              to the right counter automatically. The system tracks every step, shows live wait times,
-              and gives managers data on service speed, staff performance, and peak hours.
+            <p className="text-slate-500 text-sm leading-relaxed max-w-md mb-3">
+              SmartQueue replaces physical waiting lines with virtual check-ins, automated ticket calling, and real-time performance tracking.
             </p>
             <Link to="/register"
-              className="inline-flex items-center gap-2 mt-4 text-violet-600 font-semibold text-sm hover:underline">
+              className="inline-flex items-center gap-2 text-violet-600 font-semibold text-sm hover:underline">
               Get started free <MdArrowForward size={16} />
             </Link>
           </motion.div>
-          {/* Right — service desk mockup */}
-          <motion.div {...fadeUp(0.2)} className="relative">
-            <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 p-6">
-              {/* Ticket display */}
-              <div className="bg-white rounded-2xl p-4 mb-3 flex items-center gap-4">
-                <div className="w-16 h-16 bg-amber-400 rounded-2xl flex items-center justify-center">
-                  <p className="font-extrabold text-white text-xl">D0002</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400">Waiting Time</p>
-                  <p className="text-2xl font-extrabold text-slate-800">00:00</p>
-                </div>
-              </div>
-              {/* Counter table */}
-              <div className="bg-white rounded-2xl overflow-hidden">
-                <div className="bg-violet-600 grid grid-cols-4 text-white text-[10px] font-bold px-3 py-2">
-                  <span>COUNTER</span><span>QUEUE NO.</span><span>COUNTER</span><span>QUEUE NO.</span>
-                </div>
-                {[['1', 'C001', '2', 'C006'], ['3', 'C003', '4', 'C007'], ['4', 'C005', '1', '—'], ['2', 'C006', '5', '—'], ['6', 'C007', '6', 'C005']].map((r, i) => (
-                  <div key={i} className={`grid grid-cols-4 text-[10px] px-3 py-1.5 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                    {r.map((c, j) => <span key={j} className="font-medium text-slate-700">{c}</span>)}
-                  </div>
-                ))}
-              </div>
+          {/* Right — How.jpeg illustration */}
+          <motion.div {...fadeUp(0.2)} className="relative flex items-center justify-center">
+            <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white p-2.5 shadow-sm w-full">
+              <img
+                src="/How.jpeg"
+                alt="How SmartQueue works"
+                className="w-full max-h-[340px] sm:max-h-[380px] object-contain block mx-auto rounded-2xl"
+              />
             </div>
-            {/* Phone mockup overlay */}
-            <motion.div
-              animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}
-              className="absolute -bottom-4 -left-4 bg-white rounded-2xl border border-slate-100 p-3 w-32 text-center"
-            >
-              <div className="w-8 h-8 bg-violet-600 rounded-xl mx-auto flex items-center justify-center mb-1">
-                <MdDashboard size={16} className="text-white" />
-              </div>
-              <p className="text-[9px] font-bold text-violet-600">It is your turn now!</p>
-              <p className="text-[9px] text-slate-400 mt-0.5">Ticket A004</p>
-            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -317,86 +283,53 @@ export default function Landing() {
       {/* ════════════════ CUSTOMER FLOW ════════════════ */}
       <section className="bg-white py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-          <motion.div {...fadeUp(0)}>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-5 leading-tight">
+          {/* Left - Image */}
+          <motion.div {...fadeUp(0)} className="relative flex items-center justify-center">
+            <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white p-2.5 shadow-sm w-full">
+              <img
+                src="/Queue ticketting.jpg"
+                alt="Customer Flow Management - Queue Ticketing"
+                className="w-full max-h-[340px] sm:max-h-[380px] object-contain block mx-auto rounded-2xl"
+              />
+            </div>
+          </motion.div>
+
+          {/* Right - Text */}
+          <motion.div {...fadeUp(0.2)}>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4 leading-tight">
               Customer Flow Management<br />From Entry to Exit
             </h2>
-            <p className="text-slate-500 text-base leading-relaxed mb-6">
-              Customer flow management is about more than the line — it is the full journey a visitor
-              takes through your space. SmartQueue maps that entire flow: how customers arrive, where
-              they wait, which service they need, who serves them, and how long each stage takes.
-              By routing people to the right department automatically and balancing load across staff,
-              you remove bottlenecks before they form and keep every branch moving at a steady pace.
+            <p className="text-slate-500 text-sm leading-relaxed mb-5">
+              SmartQueue maps the complete customer journey, automatically routing visitors to the right department to eliminate bottlenecks and keep service moving smoothly.
             </p>
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-2.5">
               {CUSTOMER_FLOW_POINTS.map((pt, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-                  <MdCheckCircle size={18} className="text-violet-600 shrink-0 mt-0.5" />
+                <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
+                  <MdCheckCircle size={16} className="text-violet-600 shrink-0 mt-0.5" />
                   <span className="font-medium">{pt}</span>
                 </li>
               ))}
             </ul>
           </motion.div>
-          {/* Right side visual */}
-          <motion.div {...fadeUp(0.2)} className="relative">
-            <div className="rounded-3xl bg-gradient-to-br from-indigo-50 to-violet-100 p-6 min-h-64 flex items-center justify-center">
-              {/* Reminder notification card */}
-              <div className="bg-white rounded-2xl p-4 w-64 relative">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 bg-violet-500 rounded-full" />
-                  <p className="text-xs font-bold text-slate-700">Reminder Message</p>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Dear <span className="font-bold text-slate-700">Alex Daniel</span>, your booking has been
-                  confirmed with <strong>Service 1</strong> on 28 March, 2026 at 10:00AM – 11:30PM.
-                </p>
-                <div className="mt-3 bg-amber-400 rounded-xl px-4 py-2 text-center">
-                  <p className="font-extrabold text-white text-lg tracking-widest">D0002</p>
-                  <p className="text-[10px] text-white/80">Waiting Time 00:00</p>
-                </div>
-              </div>
-              {/* QR badge */}
-              <motion.div
-                animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}
-                className="absolute bottom-4 left-4 bg-white rounded-2xl p-3 flex items-center gap-2"
-              >
-                <MdQrCode2 size={28} className="text-violet-600" />
-                <p className="text-[10px] font-bold text-slate-700">Scan to Check-In</p>
-              </motion.div>
-              {/* Staff served chart badge */}
-              <motion.div
-                animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-                className="absolute top-4 right-4 bg-white rounded-2xl p-3"
-              >
-                <p className="text-[10px] font-bold text-slate-700 mb-2">Served by Staff</p>
-                <div className="flex items-end gap-1 h-8">
-                  {[40, 65, 50, 80, 70, 90].map((h, i) => (
-                    <div key={i} className={`w-3 rounded-sm ${i % 2 === 0 ? 'bg-violet-400' : 'bg-indigo-300'}`}
-                      style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
         </div>
       </section>
 
       {/* ════════════════ WHY SWITCH ════════════════ */}
-      <section className="bg-slate-50 py-16 px-4 sm:px-6">
+      <section className="bg-slate-50 py-12 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
-          <motion.div {...fadeUp()} className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
-              Why Businesses Switch to a Queue<br />Management System
+          <motion.div {...fadeUp()} className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              Why Businesses Switch to SmartQueue
             </h2>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {WHY_SWITCH.map((item, i) => (
               <motion.div key={i} {...fadeUp(i * 0.1)}
-                className={`bg-white rounded-2xl p-5 flex items-center gap-4 ${item.border}`}>
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
+                className={`bg-white rounded-xl p-4 flex items-center gap-3 ${item.border}`}>
+                <div className="w-9 h-9 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
                   {item.icon}
                 </div>
-                <p className="font-semibold text-slate-800 text-sm">{item.text}</p>
+                <p className="font-semibold text-slate-800 text-xs sm:text-sm">{item.text}</p>
               </motion.div>
             ))}
           </div>
@@ -404,36 +337,32 @@ export default function Landing() {
       </section>
 
       {/* ════════════════ WHY CHOOSE ════════════════ */}
-      <section className="bg-gradient-to-br from-violet-50 via-white to-indigo-50 py-20 px-4 sm:px-6">
+      <section className="bg-gradient-to-br from-violet-50 via-white to-indigo-50 py-12 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div {...fadeUp()}>
-            <span className="inline-flex items-center gap-2 bg-violet-100 text-violet-600 text-xs font-bold px-4 py-1.5 rounded-full mb-5">
+            <span className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-600 text-[11px] font-bold px-3 py-1 rounded-full mb-3">
               <span className="w-1.5 h-1.5 bg-violet-500 rounded-full" />
               WHY CHOOSE US
             </span>
-            <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">
-              Why choose SmartQueue?
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
+              Why Choose SmartQueue?
             </h2>
-            <p className="text-slate-500 max-w-lg mx-auto text-base leading-relaxed">
-              SmartQueue goes beyond queues. We help teams cut wait times, run smoother operations,
-              and deliver service visitors and patients trust — built for every industry, at any scale.
-            </p>
-            <p className="mt-4 text-violet-600 font-semibold text-sm cursor-pointer hover:underline">
-              See how SmartQueue compares to other platforms →
+            <p className="text-slate-500 max-w-md mx-auto text-xs sm:text-sm leading-relaxed">
+              Cut wait times, streamline operations, and deliver service visitors trust.
             </p>
             <Link to="/register"
-              className="inline-flex items-center gap-2 mt-7 bg-violet-600 hover:bg-violet-700 text-white font-bold px-9 py-4 rounded-full transition-all text-base">
+              className="inline-flex items-center gap-2 mt-5 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-2.5 rounded-full transition-all text-xs sm:text-sm">
               Book a Free Demo
             </Link>
           </motion.div>
-          <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {WHY_CHOOSE.map((item, i) => (
               <motion.div key={i} {...fadeUp(i * 0.08)}
-                className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-3">
-                <div className={`w-10 h-10 ${item.bg} rounded-xl flex items-center justify-center text-xl shrink-0`}>
+                className="bg-white rounded-xl border border-slate-100 p-3.5 flex items-center gap-2.5">
+                <div className={`w-8 h-8 ${item.bg} rounded-lg flex items-center justify-center text-base shrink-0 text-white`}>
                   {item.icon}
                 </div>
-                <p className="font-semibold text-slate-800 text-sm text-left">{item.label}</p>
+                <p className="font-semibold text-slate-800 text-xs text-left">{item.label}</p>
               </motion.div>
             ))}
           </div>
@@ -496,17 +425,37 @@ export default function Landing() {
       </section>
 
       {/* ════════════════ CTA BANNER ════════════════ */}
-      <section className="bg-violet-600 py-16 px-4 sm:px-6">
-        <motion.div {...fadeUp()} className="max-w-3xl mx-auto text-center text-white">
-          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
+      <section className="relative overflow-hidden py-20 px-4 sm:px-6">
+        {/* Background Image: Tickets.jpg */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/Tickets.jpg')" }}
+        />
+        {/* Gradient Overlay for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-950/90 via-violet-900/85 to-indigo-950/90 backdrop-blur-xs" />
+
+        {/* Decorative Ticket.jpg and Tickets.jpg preview cards */}
+        <div className="hidden lg:block absolute left-8 top-1/2 -translate-y-1/2 w-52 h-36 rounded-2xl overflow-hidden border border-white/20 shadow-2xl -rotate-6 opacity-75">
+          <img src="/Ticket.jpg" alt="Queue Ticket" className="w-full h-full object-cover" />
+        </div>
+        <div className="hidden lg:block absolute right-8 top-1/2 -translate-y-1/2 w-52 h-36 rounded-2xl overflow-hidden border border-white/20 shadow-2xl rotate-6 opacity-75">
+          <img src="/Tickets.jpg" alt="Queue Tickets" className="w-full h-full object-cover" />
+        </div>
+
+        <motion.div {...fadeUp()} className="relative z-10 max-w-3xl mx-auto text-center text-white">
+          <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-violet-200 text-xs font-bold px-4 py-1.5 rounded-full mb-4 border border-white/20">
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
+            GET STARTED TODAY
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight">
             Ready to Eliminate the Waiting-Room Problem?
           </h2>
-          <p className="text-violet-200 mb-8">
+          <p className="text-violet-200 mb-8 text-base max-w-xl mx-auto">
             Get started in minutes. No credit card required for the pilot program.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link to="/register"
-              className="inline-flex items-center gap-2 bg-white text-violet-700 hover:bg-violet-50 font-bold px-8 py-3.5 rounded-full transition-all">
+              className="inline-flex items-center gap-2 bg-white text-violet-700 hover:bg-violet-50 font-bold px-8 py-3.5 rounded-full transition-all shadow-lg hover:shadow-xl">
               Start Free Trial <MdArrowForward size={18} />
             </Link>
             <Link to="/login"
@@ -518,74 +467,26 @@ export default function Landing() {
       </section>
 
       {/* ════════════════ FOOTER ════════════════ */}
-      <footer className="bg-slate-950 text-slate-400 py-14 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-8 mb-12">
-            {/* Brand */}
-            <div className="col-span-2 sm:col-span-3 lg:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
-                  <MdDashboard size={16} className="text-white" />
-                </div>
-                <span className="font-extrabold text-white text-base">SmartQueue</span>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed mb-5">
-                Smart Queue Management System — replacing physical lines with virtual, trackable experiences.
-              </p>
+      <footer className="bg-slate-950 text-slate-400 py-10 px-4 sm:px-6 border-t border-slate-900">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center">
+              <MdDashboard size={15} className="text-white" />
             </div>
-
-            {/* Link columns */}
-            {Object.entries(FOOTER_LINKS).map(([col, links]) => (
-              <div key={col}>
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-4">{col}</p>
-                <ul className="flex flex-col gap-2">
-                  {links.map(l => (
-                    <li key={l}>
-                      <a href="#" className="text-xs text-slate-400 hover:text-violet-400 transition-colors flex items-center gap-1">
-                        <span className="text-violet-600">›</span> {l}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-
-            {/* Sales & support */}
-            <div>
-              <p className="text-xs font-bold text-white uppercase tracking-widest mb-4">SALES AND SUPPORT</p>
-              <div className="flex flex-col gap-2 text-xs text-slate-400">
-                {['+234 1 234 5678', '+234 9 876 5432', '+234 84 123 456'].map(n => (
-                  <a key={n} href={`tel:${n}`} className="flex items-center gap-2 hover:text-violet-400">
-                    <MdPhone size={13} className="text-violet-500" /> {n}
-                  </a>
-                ))}
-                <a href="mailto:info@smartqueue.com" className="flex items-center gap-2 hover:text-violet-400 mt-1">
-                  <MdEmail size={13} className="text-violet-500" /> info@smartqueue.com
-                </a>
-              </div>
-              {/* Social icons */}
-              <div className="flex gap-2 mt-4">
-                {['f', '𝕏', 'p', 'ig'].map(s => (
-                  <div key={s} className="w-8 h-8 bg-slate-800 hover:bg-violet-600 rounded-lg flex items-center justify-center text-xs font-bold text-white cursor-pointer transition-colors">
-                    {s}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <span className="font-extrabold text-white text-sm">SmartQueue</span>
           </div>
 
-          {/* Compliance badges */}
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
-            {['PCI DSS', 'AICPA SOC', 'HIPAA', 'GDPR', 'CCPA'].map(b => (
-              <div key={b} className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-300">
-                {b}
-              </div>
-            ))}
+          <div className="flex flex-wrap justify-center gap-6 text-slate-400 font-medium">
+            <a href="#" className="hover:text-violet-400 transition-colors">About</a>
+            <a href="#" className="hover:text-violet-400 transition-colors">Solutions</a>
+            <a href="#" className="hover:text-violet-400 transition-colors">Contact</a>
+            <a href="#" className="hover:text-violet-400 transition-colors">Privacy</a>
+            <a href="#" className="hover:text-violet-400 transition-colors">Terms</a>
           </div>
 
-          <div className="border-t border-slate-800 pt-6 text-center text-xs text-slate-500">
-            Copyright © 2026 SmartQueue.com | All Rights Reserved.
-          </div>
+          <p className="text-slate-500">
+            © 2026 SmartQueue. All rights reserved.
+          </p>
         </div>
       </footer>
 
