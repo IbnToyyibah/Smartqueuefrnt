@@ -1,19 +1,15 @@
-﻿import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
 import { queueApi, branchApi, counterApi } from '../lib/api'
 import { getSocket, joinBranch, leaveBranch } from '../lib/socket'
 import { useAuth } from './AuthContext'
+import { SERVICE_TYPES } from '../constants/services'
+import { calculateDynamicWaitTime } from '../lib/queueHelpers'
+import { sendWebPushNotification } from '../lib/pushNotificationService'
+import { sendSMSNotification } from '../lib/smsService'
 
 const QueueContext = createContext(null)
 
-export const SERVICE_TYPES = [
-  { id: 'general', label: 'General Inquiry', duration: 8, color: 'blue' },
-  { id: 'account', label: 'Account Services', duration: 12, color: 'purple' },
-  { id: 'loans', label: 'Loans & Credit', duration: 20, color: 'orange' },
-  { id: 'consultation', label: 'Medical Consultation', duration: 15, color: 'green' },
-  { id: 'document', label: 'Document Processing', duration: 10, color: 'yellow' },
-  { id: 'complaints', label: 'Complaints & Feedback', duration: 10, color: 'red' },
-  { id: 'buying', label: 'Buying', duration: 10, color: 'emerald' },
-]
+export { SERVICE_TYPES }
 
 export function QueueProvider({ children }) {
   const { user } = useAuth()
@@ -23,45 +19,112 @@ export function QueueProvider({ children }) {
   const [counters, setCounters] = useState([])
   const [activeTicket, setActiveTicket] = useState(null)
   const [activeBranch, setActiveBranch] = useState(null)
-  const [stats, setStats] = useState({ totalServed: 0, avgWaitTime: 0, noShowRate: 0, peakHour: '—' })
+  const [stats] = useState({ totalServed: 0, avgWaitTime: 0, noShowRate: 0, peakHour: '—' })
   const [loading, setLoading] = useState(false)
 
-  /* ── Load public branches on mount ── */
   useEffect(() => {
     branchApi.list()
-      .then(({ branches: b }) => { if (b?.length) setBranches(b) })
+      .then(({ branches: branchList }) => {
+        if (Array.isArray(branchList) && branchList.length > 0) {
+          setBranches(branchList)
+        }
+      })
       .catch(console.error)
   }, [])
 
-  /* ── Load customer's active ticket on login ── */
   useEffect(() => {
-    if (user?.role === 'customer') {
-      queueApi.myTicket()
-        .then(({ ticket }) => { if (ticket) setActiveTicket(ticket) })
-        .catch(console.error)
-    }
+    if (user?.role !== 'customer') return
+
+    queueApi.myTicket()
+      .then(({ ticket }) => {
+        if (ticket) setActiveTicket(ticket)
+      })
+      .catch(console.error)
   }, [user])
 
-  /* ── Join branch socket room when activeBranch changes ── */
   useEffect(() => {
     const sock = getSocket()
     if (!sock || !activeBranch) return
+
     joinBranch(activeBranch)
     return () => leaveBranch(activeBranch)
   }, [activeBranch])
 
-  /* ── Load branch queue + counters for staff/admin ── */
+  const mergeTicket = useCallback((ticket) => {
+    setQueue((prevQueue) => {
+      const index = prevQueue.findIndex((item) => item._id === ticket._id || item.id === ticket.id)
+      if (index === -1) return [ticket, ...prevQueue]
+      const next = [...prevQueue]
+      next[index] = ticket
+      return next
+    })
+
+    setActiveTicket((currentTicket) => {
+      const isMatch = currentTicket && (currentTicket._id === ticket._id || currentTicket.id === ticket.id)
+      if (!isMatch) return currentTicket
+
+      // Real-time Push & SMS Notifications on Ticket Status Update
+      if (ticket.status === 'called' && currentTicket.status !== 'called') {
+        sendWebPushNotification(`Ticket #${ticket.ticketNumber} Called!`, {
+          body: `Please proceed to ${ticket.counter?.name || ticket.counter || 'your assigned counter'} now.`,
+          tag: `called-${ticket._id}`,
+        })
+
+        if (ticket.phone) {
+          sendSMSNotification({
+            phone: ticket.phone,
+            ticketNumber: ticket.ticketNumber,
+            status: 'called',
+            counterName: ticket.counter?.name || ticket.counter || 'Counter 1',
+            serviceName: ticket.service?.label || ticket.service?.name || 'Service',
+          }).catch(console.error)
+        }
+      }
+
+      return ticket
+    })
+  }, [])
+
+  const mergeCounter = useCallback((counter) => {
+    setCounters((prevCounters) => {
+      const index = prevCounters.findIndex((item) => item._id === counter._id)
+      if (index === -1) return [...prevCounters, counter]
+      const next = [...prevCounters]
+      next[index] = counter
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    const sock = getSocket()
+    if (!sock) return
+
+    const handlers = {
+      'queue:joined': mergeTicket,
+      'queue:called': mergeTicket,
+      'queue:served': mergeTicket,
+      'queue:noshow': mergeTicket,
+      'queue:transferred': mergeTicket,
+      'counter:updated': mergeCounter,
+    }
+
+    Object.entries(handlers).forEach(([event, handler]) => sock.on(event, handler))
+    return () => Object.entries(handlers).forEach(([event, handler]) => sock.off(event, handler))
+  }, [mergeTicket, mergeCounter])
+
   const loadBranchData = useCallback(async (branchId) => {
     if (!branchId) return
+
     setLoading(true)
     setActiveBranch(branchId)
+
     try {
-      const [{ tickets }, { counters: c }] = await Promise.all([
+      const [{ tickets }, { counters: counterList }] = await Promise.all([
         queueApi.branchQueue(branchId),
         counterApi.list(branchId),
       ])
-      setQueue(tickets)
-      setCounters(c)
+      setQueue(Array.isArray(tickets) ? tickets : [])
+      setCounters(Array.isArray(counterList) ? counterList : [])
     } catch (err) {
       console.error('loadBranchData:', err)
     } finally {
@@ -69,103 +132,123 @@ export function QueueProvider({ children }) {
     }
   }, [])
 
-  /* ── Socket.IO real-time listeners ── */
-  useEffect(() => {
-    const sock = getSocket()
-    if (!sock) return
+  const completedTickets = useMemo(() => queue.filter((t) => t.status === 'served'), [queue])
 
-    const refresh = (ticket) => {
-      setQueue((prev) => {
-        const idx = prev.findIndex((t) => t._id === ticket._id)
-        if (idx === -1) return [ticket, ...prev]
-        const next = [...prev]
-        next[idx] = ticket
-        return next
+  /* ── Dynamic Moving-Average Wait Time Calculation for Queue ── */
+  const queueWithDynamicWait = useMemo(() => {
+    return queue.map((ticket) => {
+      const dynamicWait = calculateDynamicWaitTime({
+        ticket,
+        queue,
+        counters,
+        completedTickets,
+        fallbackDuration: ticket.service?.duration || 10,
       })
-      setActiveTicket((at) => (at?._id === ticket._id ? ticket : at))
-    }
-
-    sock.on('queue:joined', refresh)
-    sock.on('queue:called', refresh)
-    sock.on('queue:served', refresh)
-    sock.on('queue:noshow', refresh)
-    sock.on('queue:transferred', refresh)
-    sock.on('counter:updated', (counter) => {
-      setCounters((prev) => {
-        const idx = prev.findIndex((c) => c._id === counter._id)
-        if (idx === -1) return [...prev, counter]
-        const next = [...prev]
-        next[idx] = counter
-        return next
-      })
+      return {
+        ...ticket,
+        estimatedWait: dynamicWait,
+        dynamicWait,
+      }
     })
+  }, [queue, counters, completedTickets])
 
-    return () => {
-      sock.off('queue:joined')
-      sock.off('queue:called')
-      sock.off('queue:served')
-      sock.off('queue:noshow')
-      sock.off('queue:transferred')
-      sock.off('counter:updated')
+  /* ── Dynamic Moving-Average Wait Time Calculation for Active Ticket ── */
+  const activeTicketWithDynamicWait = useMemo(() => {
+    if (!activeTicket) return null
+    const dynamicWait = calculateDynamicWaitTime({
+      ticket: activeTicket,
+      queue,
+      counters,
+      completedTickets,
+      fallbackDuration: activeTicket.service?.duration || 10,
+    })
+    return {
+      ...activeTicket,
+      estimatedWait: dynamicWait,
+      dynamicWait,
     }
-  }, [])
+  }, [activeTicket, queue, counters, completedTickets])
 
-  /* ── Customer: join queue (no auth required) ── */
   const joinQueue = useCallback(async (data) => {
     const { ticket } = await queueApi.join(data)
     setActiveTicket(ticket)
     setActiveBranch(ticket.branch?._id || ticket.branch)
+
+    // Trigger SMS on Queue Registration
+    if (data.phone || ticket.phone) {
+      sendSMSNotification({
+        phone: data.phone || ticket.phone,
+        ticketNumber: ticket.ticketNumber,
+        status: 'joined',
+        serviceName: ticket.service?.label || ticket.service?.name || 'Service',
+        estimatedWait: ticket.estimatedWait || 10,
+      }).catch(console.error)
+    }
+
     return ticket
   }, [])
 
-  /* ── Staff: call next ── */
-  const callNext = useCallback(async (counterId) => {
-    const branchId = activeBranch || user?.branch?._id || user?.branch
-    if (!branchId) return null
-    const next = queue.find(t => ['waiting', 'checked_in'].includes(t.status))
-    if (!next) return null
-    const { ticket } = await queueApi.callNext(next._id, { counterId })
-    return ticket
-  }, [queue, activeBranch, user])
+  const getCurrentBranchId = useCallback(() => activeBranch || user?.branch?._id || user?.branch, [activeBranch, user])
 
-  /* ── Staff: mark served ── */
+  const callNext = useCallback(async (counterId) => {
+    const branchId = getCurrentBranchId()
+    if (!branchId) return null
+
+    const nextTicket = queue.find((ticket) => ['waiting', 'checked_in'].includes(ticket.status))
+    if (!nextTicket) return null
+
+    const { ticket } = await queueApi.callNext(nextTicket._id, { counterId })
+    return ticket
+  }, [getCurrentBranchId, queue])
+
   const markServed = useCallback(async (ticketId, counterId) => {
     const { ticket } = await queueApi.serve(ticketId, { counterId })
     return ticket
   }, [])
 
-  /* ── Staff: mark no-show ── */
   const markNoShow = useCallback(async (ticketId, counterId) => {
     const { ticket } = await queueApi.noShow(ticketId, { counterId })
     return ticket
   }, [])
 
-  /* ── Staff: toggle counter ── */
   const toggleCounter = useCallback(async (counterId) => {
     const { counter } = await counterApi.toggle(counterId)
-    setCounters((prev) => prev.map((c) => c._id === counter._id ? counter : c))
+    setCounters((prev) => prev.map((item) => (item._id === counter._id ? counter : item)))
     return counter
   }, [])
 
-  /* ── Staff: transfer ── */
   const transferTicket = useCallback(async (ticketId, toCounterId) => {
     const { ticket } = await queueApi.transfer(ticketId, { toCounterId })
     return ticket
   }, [])
 
-  const waitingCount = queue.filter(t => t.status === 'waiting').length
-  const servingCount = queue.filter(t => ['called', 'serving'].includes(t.status)).length
+  const waitingCount = useMemo(() => queueWithDynamicWait.filter((ticket) => ticket.status === 'waiting').length, [queueWithDynamicWait])
+  const servingCount = useMemo(() => queueWithDynamicWait.filter((ticket) => ['called', 'serving'].includes(ticket.status)).length, [queueWithDynamicWait])
 
   return (
-    <QueueContext.Provider value={{
-      queue, counters, branches, activeTicket, activeBranch,
-      stats, loading, waitingCount, servingCount,
-      joinQueue, callNext, markServed, markNoShow,
-      toggleCounter, transferTicket,
-      loadBranchData, setActiveTicket,
-      SERVICE_TYPES,
-      BRANCHES: branches,
-    }}>
+    <QueueContext.Provider
+      value={{
+        queue: queueWithDynamicWait,
+        counters,
+        branches,
+        activeTicket: activeTicketWithDynamicWait,
+        activeBranch,
+        stats,
+        loading,
+        waitingCount,
+        servingCount,
+        joinQueue,
+        callNext,
+        markServed,
+        markNoShow,
+        toggleCounter,
+        transferTicket,
+        loadBranchData,
+        setActiveTicket,
+        SERVICE_TYPES,
+        BRANCHES: branches,
+      }}
+    >
       {children}
     </QueueContext.Provider>
   )

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdArrowForward, MdCheckCircle, MdAccessTime, MdPeople, MdBarChart,
-  MdQrCode2, MdNotifications, MdDashboard, MdStar,
+  MdDashboard, MdStar,
   MdKeyboardArrowDown, MdKeyboardArrowUp,
   MdLocalHospital, MdAccountBalance, MdStorefront, MdFlight, MdSchool,
 } from 'react-icons/md'
@@ -72,11 +72,6 @@ const FAQS = [
   { q: "What's included in the free trial, and how do I get started?", a: 'The free trial includes full access to all features for 14 days. No credit card required. Sign up, run the seed script to populate demo data, and start serving customers within minutes.' },
   { q: 'How does SmartQueue integrate with my existing systems?', a: 'SmartQueue exposes a REST API and Socket.IO events so it can integrate with existing CRMs, appointment systems, ERP tools, and display hardware.' },
 ]
-
-const FOOTER_LINKS = {
-  COMPANY: ['About', 'Contact', 'Privacy', 'Terms'],
-  SOLUTIONS: ['Healthcare', 'Banking', 'Retail', 'Government'],
-}
 
 /* ── Accordion item ── */
 function FAQItem({ q, a }) {

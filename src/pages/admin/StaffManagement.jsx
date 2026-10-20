@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdAdd, MdEdit, MdDelete, MdPerson, MdEmail,
@@ -47,9 +47,11 @@ export default function StaffManagement() {
 
   useEffect(() => {
     if (!branchId) {
-      setLoading(false)
-      setStaff([])
-      setCounters([])
+      queueMicrotask(() => {
+        setLoading(false)
+        setStaff([])
+        setCounters([])
+      })
       return
     }
     Promise.all([userApi.branch(branchId), counterApi.list(branchId)])

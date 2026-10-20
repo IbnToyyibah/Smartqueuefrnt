@@ -1,6 +1,6 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { MdSave, MdSecurity, MdSettings, MdNotifications, MdStorage, MdCheckCircle } from 'react-icons/md'
+import { MdSave, MdSecurity, MdSettings, MdNotifications, MdStorage } from 'react-icons/md'
 import { useNotifications } from '../../context/NotificationContext'
 import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/layout/PageHeader'

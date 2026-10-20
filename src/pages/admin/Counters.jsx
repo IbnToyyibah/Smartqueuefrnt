@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { MdAdd, MdEdit, MdDelete, MdPause, MdPlayArrow, MdCheckCircle } from 'react-icons/md'
+import { MdAdd, MdDelete, MdPause, MdPlayArrow, MdCheckCircle } from 'react-icons/md'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
 import { branchApi, counterApi } from '../../lib/api'
@@ -32,11 +32,13 @@ export default function Counters() {
 
   useEffect(() => {
     if (!branchId) {
-      setLoading(false)
-      setCounters([])
+      queueMicrotask(() => {
+        setLoading(false)
+        setCounters([])
+      })
       return
     }
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     counterApi.list(branchId).then(({ counters: c }) => setCounters(c)).catch(console.error).finally(() => setLoading(false))
   }, [branchId])
 

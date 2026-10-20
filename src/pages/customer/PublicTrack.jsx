@@ -1,9 +1,9 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdSearch, MdAccessTime, MdPeople, MdLocationOn,
-  MdCheckCircle, MdArrowForward, MdQrCode2, MdNotifications,
+  MdArrowForward, MdNotifications,
 } from 'react-icons/md'
 import { connectSocket, joinBranch } from '../../lib/socket'
 import { queueApi } from '../../lib/api'
@@ -29,7 +29,6 @@ export default function PublicTrack() {
   const [error, setError] = useState('')
   const [lastUpdate, setLastUpdate] = useState(null)
   const [nowServing, setNowServing] = useState(null)
-  const socketRef = useRef(null)
 
   const lookupDirect = async (num) => {
     const q = (num || input).trim().toUpperCase()
@@ -48,27 +47,47 @@ export default function PublicTrack() {
 
   useEffect(() => {
     const t = searchParams.get('ticket')
-    if (t) lookupDirect(t)
-  }, [])
+    if (t) {
+      queueMicrotask(() => {
+        queueApi.lookup(t.trim().toUpperCase())
+          .then(({ ticket: found }) => {
+            setTicket(found)
+            setLastUpdate(new Date())
+          })
+          .catch((err) => {
+            setError(err.message || 'Could not connect to server.')
+            setTicket(null)
+          })
+      })
+    }
+  }, [searchParams])
 
   /* Socket live updates */
   useEffect(() => {
-    if (!ticket?.branch?._id) return
+    const branchId = ticket?.branch?._id || ticket?.branch?.id || (typeof ticket?.branch === 'string' ? ticket.branch : null)
+    if (!branchId) return
     const sock = connectSocket('')
-    joinBranch(ticket.branch._id)
+    joinBranch(branchId)
     const refresh = (updated) => {
-      if (updated._id === ticket._id || updated.ticketNumber === ticket.ticketNumber) {
+      const activeId = ticket?._id || ticket?.id
+      const updatedId = updated?._id || updated?.id
+      if ((activeId && updatedId === activeId) || (updated.ticketNumber && updated.ticketNumber === ticket?.ticketNumber)) {
         setTicket(updated)
         setLastUpdate(new Date())
       }
-      if (['called', 'serving'].includes(updated.status)) setNowServing(updated.ticketNumber)
+      if (['called', 'serving'].includes(updated?.status)) setNowServing(updated.ticketNumber)
     }
     sock.on('queue:called', refresh)
     sock.on('queue:served', refresh)
     sock.on('queue:checkedin', refresh)
     sock.on('queue:skipped', refresh)
-    return () => { sock.off('queue:called'); sock.off('queue:served'); sock.off('queue:checkedin'); sock.off('queue:skipped') }
-  }, [ticket?._id])
+    return () => {
+      sock.off('queue:called', refresh)
+      sock.off('queue:served', refresh)
+      sock.off('queue:checkedin', refresh)
+      sock.off('queue:skipped', refresh)
+    }
+  }, [ticket])
 
   const cfg = ticket ? STATUS_CFG[ticket.status] ?? STATUS_CFG.waiting : null
   const peopleAhead = Math.max(0, (ticket?.position || 1) - 1)

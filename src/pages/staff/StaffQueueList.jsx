@@ -1,8 +1,7 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   MdSearch,
-  MdFilterList,
   MdPeople,
   MdCheckCircle,
   MdCancel,
@@ -14,13 +13,13 @@ import { useNotifications } from '../../context/NotificationContext'
 import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/layout/PageHeader'
 import Badge from '../../components/ui/Badge'
-import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
 import Modal from '../../components/ui/Modal'
 
 const STATUS_FILTERS = ['all', 'waiting', 'called', 'serving', 'served', 'noshow']
 
 function timeAgo(iso) {
+  if (!iso) return ''
   const diff = Math.floor((Date.now() - new Date(iso)) / 60000)
   if (diff < 1) return 'just now'
   if (diff === 1) return '1 min ago'
@@ -158,7 +157,7 @@ export default function StaffQueueList() {
                 {/* name */}
                 <div className="col-span-3 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{t.name}</p>
-                  <p className="text-xs text-slate-400 sm:hidden">{t.service?.label}</p>
+                  <p className="text-[11px] text-slate-400">{timeAgo(t.createdAt)}</p>
                 </div>
 
                 {/* service */}

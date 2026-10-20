@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdLocationOn, MdSearch, MdArrowForward, MdPhone, MdEmail,
-  MdLocalHospital, MdAccountBalance, MdStorefront, MdGavel, MdBusiness,
+  MdLocalHospital, MdStorefront, MdGavel, MdBusiness,
   MdCheckCircle, MdBlock, MdSchool,
 } from 'react-icons/md'
 import { branchApi } from '../../lib/api'
@@ -113,9 +113,10 @@ export default function FindBranch() {
   }, [])
 
   const filtered = branches.filter(b => {
-    const m = b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.city.toLowerCase().includes(search.toLowerCase())
-    return m && (cat === 'all' || b.category === cat)
+    const q = (search || '').toLowerCase()
+    const nameMatch = (b.name || '').toLowerCase().includes(q)
+    const cityMatch = (b.city || '').toLowerCase().includes(q)
+    return (nameMatch || cityMatch) && (cat === 'all' || b.category === cat)
   })
 
   return (

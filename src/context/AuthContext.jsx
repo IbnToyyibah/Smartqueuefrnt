@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { authApi } from '../lib/api'
 import { connectSocket, disconnectSocket, joinUserRoom } from '../lib/socket'
 
@@ -8,13 +8,13 @@ const TOKEN_KEY = 'sq_token'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)   // true while restoring session
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)))
   const [error, setError] = useState(null)
 
   /* ── Restore session on mount ── */
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) { setLoading(false); return }
+    if (!token) return
 
     let alive = true
     authApi.me()

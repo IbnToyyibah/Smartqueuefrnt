@@ -1,10 +1,9 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  MdBusiness, MdPeople, MdCheckCircle, MdAccessTime, MdSecurity,
+  MdBusiness, MdPeople, MdCheckCircle, MdSecurity,
   MdHistory, MdSettings, MdArrowForward, MdWarning, MdCircle,
-  MdTrendingUp, MdTrendingDown,
 } from 'react-icons/md'
 import { branchApi, analyticsApi, userApi } from '../../lib/api'
 import AppLayout from '../../components/layout/AppLayout'
@@ -44,7 +43,7 @@ const MOCK_AUDIT = [
 export default function SuperAdminDashboard() {
   const [branches, setBranches] = useState([])
   const [platform, setPlatform] = useState([])
-  const [userCount, setUserCount] = useState(0)
+  const [, setUserCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

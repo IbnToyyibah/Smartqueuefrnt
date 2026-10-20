@@ -1,12 +1,12 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdAccessTime, MdPeople, MdQrCode2, MdNotifications,
-  MdCheckCircle, MdLocationOn, MdAdd,
+  MdCheckCircle, MdLocationOn, MdAdd, MdPhonelinkRing,
 } from 'react-icons/md'
 import { useQueue } from '../../context/QueueContext'
-import { useAuth } from '../../context/AuthContext'
+import { useNotifications } from '../../context/NotificationContext'
 import { queueApi } from '../../lib/api'
 import { getSocket, joinBranch } from '../../lib/socket'
 import AppLayout from '../../components/layout/AppLayout'
@@ -64,31 +64,40 @@ function PositionRing({ position, total }) {
 
 export default function LiveTracking() {
   const { activeTicket, setActiveTicket } = useQueue()
-  const { user } = useAuth()
+  const { enableWebPush, pushStatus } = useNotifications()
   const [ticket, setTicket] = useState(activeTicket)
   const [loading, setLoading] = useState(!activeTicket)
   const [showQR, setShowQR] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(new Date())
 
+  const currentTicket = ticket || activeTicket
+
   /* ── Load ticket on mount ── */
   useEffect(() => {
-    if (activeTicket) { setTicket(activeTicket); setLoading(false); return }
+    if (activeTicket) {
+      const branchId = activeTicket.branch?._id || activeTicket.branch?.id || activeTicket.branch
+      if (branchId) joinBranch(branchId)
+      return
+    }
     queueApi.myTicket()
       .then(({ ticket: t }) => {
         setTicket(t)
         setActiveTicket(t)
-        if (t?.branch?._id) joinBranch(t.branch._id)
+        const branchId = t?.branch?._id || t?.branch?.id || t?.branch
+        if (branchId) joinBranch(branchId)
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeTicket, setActiveTicket])
 
   /* ── Socket live updates ── */
   useEffect(() => {
     const sock = getSocket()
-    if (!sock || !ticket) return
+    if (!sock || !currentTicket) return
+    const activeId = currentTicket._id || currentTicket.id
     const handler = (updated) => {
-      if (updated._id === ticket._id || updated.id === ticket.id) {
+      const updatedId = updated?._id || updated?.id
+      if (updatedId === activeId || (updated?.ticketNumber && updated.ticketNumber === currentTicket.ticketNumber)) {
         setTicket(updated)
         setActiveTicket(updated)
         setLastUpdate(new Date())
@@ -106,7 +115,7 @@ export default function LiveTracking() {
       sock.off('queue:checkedin', handler)
       sock.off('queue:updated', handler)
     }
-  }, [ticket])
+  }, [currentTicket, setActiveTicket])
 
   if (loading) {
     return (
@@ -118,7 +127,7 @@ export default function LiveTracking() {
     )
   }
 
-  if (!ticket) {
+  if (!currentTicket) {
     return (
       <AppLayout>
         <PageHeader title="My Ticket" subtitle="Live queue tracking" breadcrumb="Customer" />
@@ -129,25 +138,31 @@ export default function LiveTracking() {
     )
   }
 
-  const cfg = STATUS_CFG[ticket.status] ?? STATUS_CFG.waiting
-  const branchId = ticket.branch?._id || ticket.branch
+  const cfg = STATUS_CFG[currentTicket.status] ?? STATUS_CFG.waiting
   const milestones = MILESTONES.map((m, i) => ({
-    ...m, done: i === 0 || (ticket.position <= m.key),
+    ...m, done: i === 0 || (currentTicket.position <= m.key),
   }))
 
   return (
     <AppLayout>
-      <PageHeader title="My Ticket" subtitle="Live queue position — updates in real time" breadcrumb="Customer"
+      <PageHeader title="My Ticket" subtitle="Live queue position & dynamic moving-average wait times" breadcrumb="Customer"
         action={
-          <Button variant="secondary" size="sm" icon={<MdQrCode2 size={16} />} onClick={() => setShowQR(true)}>
-            Show QR Code
-          </Button>
+          <div className="flex gap-2">
+            {pushStatus !== 'granted' && (
+              <Button variant="secondary" size="sm" icon={<MdPhonelinkRing size={16} />} onClick={enableWebPush}>
+                Enable Web Push
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" icon={<MdQrCode2 size={16} />} onClick={() => setShowQR(true)}>
+              Show QR Code
+            </Button>
+          </div>
         } />
 
       <div className="max-w-2xl mx-auto flex flex-col gap-5">
 
         {/* Status banner */}
-        <motion.div key={ticket.status} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+        <motion.div key={currentTicket.status} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           className={`rounded-2xl border p-4 flex items-center gap-3 ${cfg.bg}`}>
           <span className="relative flex h-3 w-3 shrink-0">
             <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${cfg.dot}`} />
@@ -157,27 +172,30 @@ export default function LiveTracking() {
             <p className="text-sm font-bold text-slate-800">{cfg.label}</p>
             <p className="text-xs text-slate-500 mt-0.5">{cfg.msg}</p>
           </div>
-          <Badge variant={cfg.color}>{ticket.ticketNumber}</Badge>
+          <Badge variant={cfg.color}>{currentTicket.ticketNumber}</Badge>
         </motion.div>
 
         {/* Main card */}
         <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-center gap-8">
             <div className="flex flex-col items-center gap-2">
-              <PositionRing position={ticket.position || 1} total={10} />
+              <PositionRing position={currentTicket.position || 1} total={10} />
               <p className="text-xs text-slate-400">
                 Updated {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
             <div className="flex-1 grid grid-cols-2 gap-4 w-full">
               {[
-                { icon: <MdAccessTime size={20} className="text-violet-500" />, label: 'Est. wait', value: `${ticket.estimatedWait ?? 0} min`, bg: 'bg-violet-50' },
-                { icon: <MdPeople size={20} className="text-indigo-500" />, label: 'Ahead of you', value: Math.max(0, (ticket.position || 1) - 1), bg: 'bg-indigo-50' },
-                { icon: <MdLocationOn size={20} className="text-emerald-500" />, label: 'Branch', value: (ticket.branch?.name || '—').split(' ')[0], bg: 'bg-emerald-50' },
-                { icon: <MdNotifications size={20} className="text-amber-500" />, label: 'Notify via', value: (ticket.notifyChannel || 'email').toUpperCase(), bg: 'bg-amber-50' },
+                { icon: <MdAccessTime size={20} className="text-violet-500" />, label: 'Dynamic est. wait', value: `${currentTicket.estimatedWait ?? 0} min`, sub: 'Moving Avg', bg: 'bg-violet-50' },
+                { icon: <MdPeople size={20} className="text-indigo-500" />, label: 'Ahead of you', value: Math.max(0, (currentTicket.position || 1) - 1), bg: 'bg-indigo-50' },
+                { icon: <MdLocationOn size={20} className="text-emerald-500" />, label: 'Branch', value: (currentTicket.branch?.name || '—').split(' ')[0], bg: 'bg-emerald-50' },
+                { icon: <MdNotifications size={20} className="text-amber-500" />, label: 'Notify via', value: 'PUSH & SMS', bg: 'bg-amber-50' },
               ].map(m => (
                 <div key={m.label} className={`${m.bg} rounded-2xl p-3`}>
-                  <div className="mb-1">{m.icon}</div>
+                  <div className="mb-1 flex items-center justify-between">
+                    {m.icon}
+                    {m.sub && <span className="text-[9px] font-bold uppercase tracking-wider text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded">{m.sub}</span>}
+                  </div>
                   <p className="text-[11px] text-slate-500">{m.label}</p>
                   <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">{m.value}</p>
                 </div>
@@ -185,15 +203,15 @@ export default function LiveTracking() {
             </div>
           </div>
 
-          {ticket.counter && (
+          {currentTicket.counter && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               className="mt-5 bg-violet-600 rounded-2xl p-4 text-white flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-lg">
-                {(ticket.counter?.name || ticket.counter).replace('Counter ', '')}
+                {(currentTicket.counter?.name || currentTicket.counter).replace('Counter ', '')}
               </div>
               <div>
                 <p className="text-xs text-violet-200">Proceed to</p>
-                <p className="text-xl font-extrabold">{ticket.counter?.name || ticket.counter}</p>
+                <p className="text-xl font-extrabold">{currentTicket.counter?.name || currentTicket.counter}</p>
               </div>
             </motion.div>
           )}
@@ -222,10 +240,10 @@ export default function LiveTracking() {
           <h3 className="text-sm font-bold text-slate-700 mb-3">Ticket details</h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
             {[
-              { label: 'Ticket No.', value: ticket.ticketNumber },
-              { label: 'Service', value: ticket.service?.label || ticket.service?.name },
-              { label: 'Branch', value: ticket.branch?.name },
-              { label: 'Checked in', value: new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+              { label: 'Ticket No.', value: currentTicket.ticketNumber },
+              { label: 'Service', value: currentTicket.service?.label || currentTicket.service?.name },
+              { label: 'Branch', value: currentTicket.branch?.name },
+              { label: 'Checked in', value: new Date(currentTicket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
             ].map(r => (
               <div key={r.label} className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400">{r.label}</p>
@@ -234,7 +252,7 @@ export default function LiveTracking() {
             ))}
           </div>
         </div>
-        <p className="text-center text-xs text-slate-400 pb-4">Queue position updates automatically via WebSocket</p>
+        <p className="text-center text-xs text-slate-400 pb-4">Queue position updates automatically via WebSocket & Web Push / SMS</p>
       </div>
 
       {/* QR Modal */}
@@ -250,7 +268,7 @@ export default function LiveTracking() {
                 <p className="font-bold text-slate-800 text-lg">Your QR Code</p>
                 <p className="text-xs text-slate-500 mt-1">Show this at the venue to check in</p>
               </div>
-              <QRCodeDisplay value={ticket.qrCode || ticket.ticketNumber} ticketNumber={ticket.ticketNumber} size={200} />
+              <QRCodeDisplay value={currentTicket.qrCode || currentTicket.ticketNumber} ticketNumber={currentTicket.ticketNumber} size={200} />
               <Badge variant={cfg.color} size="lg">{cfg.label}</Badge>
               <Button variant="secondary" size="sm" onClick={() => setShowQR(false)}>Close</Button>
             </motion.div>

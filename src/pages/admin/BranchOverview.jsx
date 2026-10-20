@@ -97,7 +97,7 @@ export default function BranchOverview() {
   const { user } = useAuth()
   const { notify } = useNotifications()
   const [stats, setStats] = useState(null)
-  const [loadingA, setLoadingA] = useState(true)
+  const [, setLoadingA] = useState(true)
   const [branches, setBranches] = useState([])
   const [selectedBranch, setSelectedBranch] = useState('')
 
@@ -115,7 +115,7 @@ export default function BranchOverview() {
 
   useEffect(() => {
     if (!branchId) {
-      setLoadingA(false)
+      queueMicrotask(() => setLoadingA(false))
       return
     }
     loadBranchData(branchId)
@@ -123,7 +123,7 @@ export default function BranchOverview() {
       .then(({ totals }) => setStats(totals))
       .catch(console.error)
       .finally(() => setLoadingA(false))
-  }, [branchId])
+  }, [branchId, loadBranchData])
 
   const totalToday = stats?.totalTickets ?? 0
   const completedToday = stats?.totalServed ?? 0

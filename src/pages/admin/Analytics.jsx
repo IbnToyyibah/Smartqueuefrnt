@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   MdAccessTime, MdPeople, MdCheckCircle, MdDownload,
@@ -68,7 +68,7 @@ export default function Analytics() {
 
   useEffect(() => {
     if (!branchId) return
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     analyticsApi.branch(branchId, days)
       .then(d => setData(d))
       .catch(console.error)
