@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   MdBusiness,
@@ -6,8 +6,6 @@ import {
   MdNotifications,
   MdSave,
   MdCheckCircle,
-  MdAdd,
-  MdDelete,
 } from 'react-icons/md'
 import { useNotifications } from '../../context/NotificationContext'
 import AppLayout from '../../components/layout/AppLayout'

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   MdBusiness, MdAdd, MdEdit, MdDelete, MdSearch,
   MdLocationOn, MdPeople, MdDashboard, MdCheckCircle,
-  MdLocalHospital, MdAccountBalance, MdStorefront, MdGavel,
+  MdLocalHospital, MdStorefront, MdGavel,
   MdBlock, MdSchool,
 } from 'react-icons/md'
 import { useNotifications } from '../../context/NotificationContext'
@@ -90,7 +90,7 @@ export default function AllBranches() {
       .then(({ branches: b }) => setBranches(b))
       .catch(() => notify('error', 'Failed to load branches', 'Check your connection.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [notify])
 
   const set = (k, v) => {
     setForm(f => ({ ...f, [k]: v }))
@@ -177,11 +177,11 @@ export default function AllBranches() {
     }
   }
 
-  /* ── Filtered list ── */
   const filtered = branches.filter(b => {
+    const q = (search || '').toLowerCase()
     const matchSearch =
-      b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.city.toLowerCase().includes(search.toLowerCase())
+      (b.name || '').toLowerCase().includes(q) ||
+      (b.city || '').toLowerCase().includes(q)
     const matchCat = catFilter === 'all' || b.category === catFilter
     return matchSearch && matchCat
   })

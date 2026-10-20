@@ -4,7 +4,6 @@ import { useQueue } from '../../context/QueueContext'
 import { branchApi } from '../../lib/api'
 import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/layout/PageHeader'
-import Badge from '../../components/ui/Badge'
 import { MdPeople } from 'react-icons/md'
 const STATUS_CLR = { waiting:'bg-amber-100 text-amber-700', checked_in:'bg-blue-100 text-blue-700', called:'bg-indigo-100 text-indigo-700', serving:'bg-violet-100 text-violet-700', served:'bg-green-100 text-green-700', noshow:'bg-red-100 text-red-500', skipped:'bg-slate-100 text-slate-500' }
 export default function AdminQueueList() {
@@ -27,7 +26,7 @@ export default function AdminQueueList() {
   useEffect(() => {
     if (!branchId) return
     loadBranchData(branchId)
-  }, [branchId])
+  }, [branchId, loadBranchData])
 
   const active = queue.filter(t => ['waiting','checked_in','called','serving'].includes(t.status))
   return (

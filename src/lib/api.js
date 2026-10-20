@@ -5,7 +5,9 @@
  */
 
 const RAW_BASE = import.meta.env.VITE_API_URL
-const BASE = RAW_BASE || (import.meta.env.DEV ? 'http://127.0.0.1:5001/api' : '/api')
+// Use the Vite proxy locally and the deployed backend on static hosting.
+const CONFIGURED_BASE = RAW_BASE === '/api' && !import.meta.env.DEV ? '' : RAW_BASE
+const BASE = CONFIGURED_BASE || (import.meta.env.DEV ? '/api' : 'https://smartqueuebck.onrender.com/api')
 
 const getToken = () => localStorage.getItem('sq_token')
 
@@ -38,12 +40,25 @@ const toSnakeCaseQueueJoin = (data = {}) => ({
 
 const normalizeTicket = (ticket) => {
   if (!ticket) return ticket
+
+  // Ensure ticketNumber is always set - fallback to id if neither field exists
+  const ticketNumber = ticket.ticketNumber || ticket.ticket_number || ticket.id || 'UNKNOWN'
+  const branchObj =
+    typeof ticket.branch === 'object' && ticket.branch !== null
+      ? {
+          ...ticket.branch,
+          _id: ticket.branch._id || ticket.branch.id,
+          id: ticket.branch.id || ticket.branch._id,
+        }
+      : ticket.branch
+
   return {
     ...ticket,
     _id: ticket._id || ticket.id,
     id: ticket.id || ticket._id,
-    ticketNumber: ticket.ticketNumber || ticket.ticket_number,
-    ticket_number: ticket.ticket_number || ticket.ticketNumber,
+    ticketNumber,
+    ticket_number: ticketNumber,
+    branch: branchObj,
     estimatedWait: ticket.estimatedWait || ticket.estimated_wait,
     estimated_wait: ticket.estimated_wait || ticket.estimatedWait,
     qrCode: ticket.qrCode || ticket.qr_code,
@@ -112,6 +127,7 @@ export const authApi = {
   register: (data) => post('/auth/register', data),
   login: (data) => post('/auth/login', data),
   me: () => get('/auth/me'),
+  permissions: () => get('/auth/permissions'),
   updateMe: (data) => patch('/auth/me', data),
   changePassword: (data) => post('/auth/change-password', data),
 }
@@ -134,6 +150,7 @@ export const queueApi = {
       tickets: Array.isArray(res.tickets) ? res.tickets.map(normalizeTicket) : res.tickets,
     }
   },
+  display: (branchId) => get(`/queue/display/${encodeURIComponent(branchId)}`),
   getTicket: async (id) => normalizeTicketPayload(await get(`/queue/${id}`)),
   lookup: async (ticketNum) => normalizeTicketPayload(await get(`/queue/lookup/${ticketNum}`)),
   callNext: async (id, body) => normalizeTicketPayload(await post(`/queue/${id}/call`, body)),
@@ -248,7 +265,7 @@ export const branchApi = {
     try {
       const res = await get(`/branches/${id}`)
       return { ...res, branch: normalizeBranch(res.branch) }
-    } catch (e) {
+    } catch {
       const found = DEFAULT_BRANCHES.find(b => b._id === id || b.id === id) || DEFAULT_BRANCHES[0]
       return { branch: found }
     }

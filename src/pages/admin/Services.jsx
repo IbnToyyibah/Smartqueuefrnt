@@ -32,11 +32,13 @@ export default function Services() {
 
   useEffect(() => {
     if (!branchId) {
-      setLoading(false)
-      setServices([])
+      queueMicrotask(() => {
+        setLoading(false)
+        setServices([])
+      })
       return
     }
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     branchApi.getServices(branchId)
       .then(({ services: list }) => setServices(list || []))
       .catch(console.error)

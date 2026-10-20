@@ -1,29 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  MdAccessTime,
-  MdBarChart,
   MdCheckCircle,
   MdDashboard,
-  MdEmail,
-  MdPeople,
   MdPause,
   MdPlayArrow,
   MdRefresh,
-  MdSend,
   MdSkipNext,
-  MdSms,
   MdSwapHoriz,
-  MdWarning,
 } from 'react-icons/md'
 import { useQueue } from '../../context/QueueContext'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
-import { notifApi, queueApi } from '../../lib/api'
+import { queueApi } from '../../lib/api'
+import { connectSocket, joinBranch, leaveBranch } from '../../lib/socket'
 import AppLayout from '../../components/layout/AppLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
-import Button from '../../components/ui/Button'
 
 const TABS = ['Overview', 'Queue', 'Agents', 'Counters']
 const STATUS_TONE = {
@@ -40,10 +33,10 @@ const fmtWait = (m) => `${Math.max(0, Number(m) || 0)}m`
 
 function Stat({ label, value, sub }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-200/70">{label}</p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
-      {sub && <p className="mt-1 text-xs text-cyan-100/60">{sub}</p>}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
+      {sub && <p className="mt-1 text-xs text-slate-600">{sub}</p>}
     </div>
   )
 }
@@ -52,27 +45,25 @@ function SectionTitle({ title, meta }) {
   return (
     <div className="flex items-end justify-between gap-3 mb-3">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-200/60">Terminal</p>
-        <h2 className="text-lg font-extrabold text-white">{title}</h2>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Terminal</p>
+        <h2 className="text-lg font-extrabold text-slate-900">{title}</h2>
       </div>
-      {meta && <p className="text-xs text-cyan-100/60">{meta}</p>}
+      {meta && <p className="text-xs text-slate-500">{meta}</p>}
     </div>
   )
 }
 
 function TerminalCard({ children, className = '' }) {
-  return <div className={`rounded-[28px] border border-white/10 bg-slate-950/80 shadow-2xl ${className}`}>{children}</div>
+  return <div className={`rounded-[28px] border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
 }
 
 export default function StaffDashboard() {
-  const { queue, counters, stats, loading, loadBranchData, callNext, markServed, toggleCounter, transferTicket } = useQueue()
+  const { queue, counters, stats, loadBranchData, callNext, markServed, toggleCounter, transferTicket } = useQueue()
   const { user } = useAuth()
   const { notify } = useNotifications()
 
   const [tab, setTab] = useState('Overview')
   const [busy, setBusy] = useState(false)
-  const [messageText, setMessageText] = useState('')
-  const [messageChannel, setMessageChannel] = useState('auto')
   const [transferOpen, setTransferOpen] = useState(false)
   const [transferTarget, setTransferTarget] = useState(null)
 
@@ -81,6 +72,36 @@ export default function StaffDashboard() {
 
   useEffect(() => {
     if (branchId) loadBranchData(branchId)
+  }, [branchId, loadBranchData])
+
+  // Socket.IO: Listen for real-time queue updates
+  useEffect(() => {
+    if (!branchId) return
+
+    const sock = connectSocket('')
+    joinBranch(branchId)
+
+    const handleQueueUpdate = () => {
+      loadBranchData(branchId)
+    }
+
+    // Listen for queue events
+    sock?.on('queue:joined', handleQueueUpdate)
+    sock?.on('queue:called', handleQueueUpdate)
+    sock?.on('queue:updated', handleQueueUpdate)
+    sock?.on('queue:served', handleQueueUpdate)
+    sock?.on('queue:noshow', handleQueueUpdate)
+    sock?.on('queue:skipped', handleQueueUpdate)
+
+    return () => {
+      sock?.off('queue:joined', handleQueueUpdate)
+      sock?.off('queue:called', handleQueueUpdate)
+      sock?.off('queue:updated', handleQueueUpdate)
+      sock?.off('queue:served', handleQueueUpdate)
+      sock?.off('queue:noshow', handleQueueUpdate)
+      sock?.off('queue:skipped', handleQueueUpdate)
+      leaveBranch(branchId)
+    }
   }, [branchId, loadBranchData])
 
   const wrap = async (fn, ...args) => {
@@ -178,38 +199,19 @@ export default function StaffDashboard() {
     setTransferTarget(null)
   }
 
-  const handleSendMessage = async () => {
-    if (!nowServing || !messageText.trim()) return
-    try {
-      setBusy(true)
-      await notifApi.sendToTicket(nowServing._id, {
-        title: 'Message from SmartQueue Staff',
-        message: messageText.trim(),
-        type: 'info',
-        channel: messageChannel,
-      })
-      notify('success', 'Message sent', `${nowServing.ticketNumber} updated.`)
-      setMessageText('')
-    } catch (err) {
-      notify('error', 'Send failed', err.message || 'Could not send message.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const queueRows = activeQueue.slice(0, 12)
 
   return (
     <AppLayout>
-      <div className="terminal-mono min-h-[calc(100vh-7rem)] rounded-[32px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_100%)] p-4 sm:p-6 text-slate-100">
+      <div className="terminal-mono min-h-[calc(100vh-7rem)] rounded-[32px] bg-white p-4 sm:p-6 text-slate-900">
         <div className="flex flex-col gap-4">
-          <div className="rounded-[28px] border border-white/10 bg-white/5 px-4 py-3 overflow-hidden">
-            <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.35em] text-cyan-200/70">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300"><MdDashboard size={18} /></span>
+          <div className="rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 overflow-hidden shadow-sm">
+            <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.35em] text-slate-600">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600"><MdDashboard size={18} /></span>
               <span>SmartQueue Terminal</span>
-              <span className="ml-auto text-cyan-100/40">Live</span>
+              <span className="ml-auto text-slate-500">Live</span>
             </div>
-            <div className="mt-2 overflow-hidden whitespace-nowrap text-xs text-cyan-100/70">
+            <div className="mt-2 overflow-hidden whitespace-nowrap text-xs text-slate-600">
               <div className="inline-block animate-[marquee_18s_linear_infinite]">
                 {liveTicker.concat(liveTicker).map((item, i) => (
                   <span key={`${item}-${i}`} className="mr-8">{item}</span>
@@ -225,8 +227,8 @@ export default function StaffDashboard() {
                 onClick={() => setTab(item)}
                 className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] transition-colors ${
                   tab === item
-                    ? 'border-cyan-300 bg-cyan-400/15 text-cyan-100'
-                    : 'border-white/10 bg-white/5 text-cyan-100/60 hover:bg-white/10'
+                    ? 'border-blue-300 bg-blue-100 text-blue-700'
+                    : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {item}
@@ -253,24 +255,24 @@ export default function StaffDashboard() {
                 <div className="grid gap-4 xl:grid-cols-[1.25fr_0.9fr]">
                   <TerminalCard className="p-4">
                     <SectionTitle title="Live Queue" meta="Priority sort" />
-                    <div className="overflow-hidden rounded-2xl border border-white/10">
-                      <div className="grid grid-cols-12 bg-white/5 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-cyan-100/50">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200">
+                      <div className="grid grid-cols-12 bg-slate-100 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-slate-600">
                         <div className="col-span-2">Token</div>
                         <div className="col-span-4">Guest</div>
                         <div className="col-span-3">Service</div>
                         <div className="col-span-2">Wait</div>
                         <div className="col-span-1 text-right">Act</div>
                       </div>
-                      <div className="max-h-[420px] overflow-auto divide-y divide-white/8">
+                      <div className="max-h-[420px] overflow-auto divide-y divide-slate-200">
                         {queueRows.map((t) => (
-                          <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-white/5">
-                            <div className="col-span-2 font-black text-white">{t.ticketNumber}</div>
+                          <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-slate-50">
+                            <div className="col-span-2 font-black text-slate-900">{t.ticketNumber}</div>
                             <div className="col-span-4 min-w-0">
-                              <div className="truncate font-semibold text-white">{t.name}</div>
-                              <div className="truncate text-[11px] text-cyan-100/50">{t.position ? `Position ${t.position}` : 'Queue'}</div>
+                              <div className="truncate font-semibold text-slate-900">{t.name}</div>
+                              <div className="truncate text-[11px] text-slate-500">{t.position ? `Position ${t.position}` : 'Queue'}</div>
                             </div>
-                            <div className="col-span-3 min-w-0 text-cyan-100/70 truncate">{t.service?.label || t.service?.name}</div>
-                            <div className={`col-span-2 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-rose-300' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                            <div className="col-span-3 min-w-0 text-slate-600 truncate">{t.service?.label || t.service?.name}</div>
+                            <div className={`col-span-2 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-red-600' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-600' : 'text-green-600'}`}>
                               {fmtWait(t.estimatedWait)}
                             </div>
                             <div className="col-span-1 flex justify-end">
@@ -296,13 +298,13 @@ export default function StaffDashboard() {
                             key={a.title}
                             onClick={a.onClick}
                             disabled={!a.active || busy}
-                            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-colors hover:bg-white/10 disabled:opacity-40"
+                            className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <span className="flex items-center gap-3">
-                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-200">{a.icon}</span>
-                              <span className="font-bold text-white">{a.title}</span>
+                              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600">{a.icon}</span>
+                              <span className="font-bold text-slate-900">{a.title}</span>
                             </span>
-                            <span className="text-cyan-100/40">→</span>
+                            <span className="text-slate-400">→</span>
                           </button>
                         ))}
                       </div>
@@ -311,13 +313,13 @@ export default function StaffDashboard() {
                     <TerminalCard className="p-4">
                       <SectionTitle title="Now Serving" meta={nowServing ? nowServing.name : 'Idle'} />
                       {nowServing ? (
-                        <div className="rounded-3xl border border-cyan-300/10 bg-cyan-400/10 p-4">
-                          <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-200/60">Ticket</p>
-                          <p className="mt-1 text-4xl font-black text-white">{nowServing.ticketNumber}</p>
-                          <p className="mt-2 text-sm text-cyan-100/70">{nowServing.service?.label || nowServing.service?.name}</p>
+                        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-4">
+                          <p className="text-[10px] uppercase tracking-[0.35em] text-slate-600">Ticket</p>
+                          <p className="mt-1 text-4xl font-black text-slate-900">{nowServing.ticketNumber}</p>
+                          <p className="mt-2 text-sm text-slate-600">{nowServing.service?.label || nowServing.service?.name}</p>
                         </div>
                       ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-cyan-100/50">
+                        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
                           No active ticket.
                         </div>
                       )}
@@ -331,8 +333,8 @@ export default function StaffDashboard() {
               <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <TerminalCard className="p-4">
                   <SectionTitle title="Queue" meta={`${activeQueue.length} tickets`} />
-                  <div className="overflow-hidden rounded-2xl border border-white/10">
-                    <div className="grid grid-cols-12 bg-white/5 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-cyan-100/50">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="grid grid-cols-12 bg-slate-100 px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-slate-600">
                       <div className="col-span-2">Ticket</div>
                       <div className="col-span-4">Guest</div>
                       <div className="col-span-2">Service</div>
@@ -340,16 +342,16 @@ export default function StaffDashboard() {
                       <div className="col-span-1">Status</div>
                       <div className="col-span-2 text-right">Action</div>
                     </div>
-                    <div className="divide-y divide-white/8">
+                    <div className="divide-y divide-slate-200">
                       {activeQueue.map((t) => (
-                        <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-white/5">
-                          <div className="col-span-2 font-black text-white">{t.ticketNumber}</div>
+                        <div key={t._id} className="grid grid-cols-12 items-center px-4 py-3 text-sm hover:bg-slate-50">
+                          <div className="col-span-2 font-black text-slate-900">{t.ticketNumber}</div>
                           <div className="col-span-4 min-w-0">
-                            <div className="truncate font-semibold text-white">{t.name}</div>
-                            <div className="text-[11px] text-cyan-100/50">{t.position ? `Pos ${t.position}` : ''}</div>
+                            <div className="truncate font-semibold text-slate-900">{t.name}</div>
+                            <div className="text-[11px] text-slate-500">{t.position ? `Pos ${t.position}` : ''}</div>
                           </div>
-                          <div className="col-span-2 truncate text-cyan-100/70">{t.service?.label || t.service?.name}</div>
-                          <div className={`col-span-1 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-rose-300' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                          <div className="col-span-2 truncate text-slate-600">{t.service?.label || t.service?.name}</div>
+                          <div className={`col-span-1 text-[11px] font-bold ${Number(t.estimatedWait || 0) > 10 ? 'text-red-600' : Number(t.estimatedWait || 0) > 5 ? 'text-amber-600' : 'text-green-600'}`}>
                             {fmtWait(t.estimatedWait)}
                           </div>
                           <div className="col-span-1">
@@ -361,7 +363,7 @@ export default function StaffDashboard() {
                             {t.status === 'waiting' && (
                               <button
                                 onClick={() => { setTransferTarget(t); setTransferOpen(true) }}
-                                className="rounded-lg border border-white/10 bg-white/5 p-2 text-cyan-100/70 hover:bg-white/10"
+                                className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100"
                               >
                                 <MdSwapHoriz size={16} />
                               </button>
@@ -369,7 +371,7 @@ export default function StaffDashboard() {
                             {(t.status === 'called' || t.status === 'serving') && (
                               <button
                                 onClick={() => markServed(t._id, myCounter?._id)}
-                                className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                                className="rounded-lg border border-green-300 bg-green-50 p-2 text-green-600 hover:bg-green-100"
                               >
                                 <MdCheckCircle size={16} />
                               </button>
@@ -399,28 +401,28 @@ export default function StaffDashboard() {
                     }))).map((agent, i) => {
                       const pct = Math.min(100, Math.round((agent.done / Math.max(1, agent.target)) * 100))
                       return (
-                        <div key={agent.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                        <div key={agent.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="font-black text-white">{agent.name}</p>
-                              <p className="text-[11px] text-cyan-100/50">{agent.role}</p>
+                              <p className="font-black text-slate-900">{agent.name}</p>
+                              <p className="text-[11px] text-slate-500">{agent.role}</p>
                             </div>
-                            <span className={`h-2.5 w-2.5 rounded-full ${i % 3 === 0 ? 'bg-emerald-400' : i % 3 === 1 ? 'bg-amber-400' : 'bg-rose-400'}`} />
+                            <span className={`h-2.5 w-2.5 rounded-full ${i % 3 === 0 ? 'bg-green-500' : i % 3 === 1 ? 'bg-amber-500' : 'bg-red-500'}`} />
                           </div>
-                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-200/50">Current</p>
-                            <p className="mt-1 font-bold text-white">{agent.current}</p>
+                          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600">Current</p>
+                            <p className="mt-1 font-bold text-slate-900">{agent.current}</p>
                           </div>
                           <div className="mt-4">
-                            <div className="mb-1 flex items-center justify-between text-[11px] text-cyan-100/50">
+                            <div className="mb-1 flex items-center justify-between text-[11px] text-slate-600">
                               <span>Target</span>
                               <span>{pct}%</span>
                             </div>
-                            <div className="h-2 rounded-full bg-white/10">
-                              <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${pct}%` }} />
+                            <div className="h-2 rounded-full bg-slate-200">
+                              <div className="h-2 rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
                             </div>
                           </div>
-                          <button className="mt-4 w-full rounded-2xl border border-cyan-300/10 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-400/15">
+                          <button className="mt-4 w-full rounded-2xl border border-blue-300 bg-blue-100 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-200">
                             Call Next
                           </button>
                         </div>
@@ -437,29 +439,29 @@ export default function StaffDashboard() {
                   <SectionTitle title="Counters" meta={`${displayCounters.length} online slots`} />
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {displayCounters.map((counter) => (
-                      <div key={counter.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+                      <div key={counter.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-black text-white">{counter.name}</p>
-                            <p className="text-[11px] text-cyan-100/50">{counter.service}</p>
+                            <p className="font-black text-slate-900">{counter.name}</p>
+                            <p className="text-[11px] text-slate-500">{counter.service}</p>
                           </div>
                           <Badge variant={counter.status === 'active' ? 'success' : counter.status === 'paused' ? 'warning' : 'closed'} size="sm">
                             {counter.status}
                           </Badge>
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Agent</p>
-                            <p className="mt-1 font-bold text-white">{counter.agent}</p>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600">Agent</p>
+                            <p className="mt-1 font-bold text-slate-900">{counter.agent}</p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Active</p>
-                            <p className="mt-1 font-bold text-white">{counter.active}</p>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600">Active</p>
+                            <p className="mt-1 font-bold text-slate-900">{counter.active}</p>
                           </div>
                         </div>
-                        <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                          <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-100/50">Served Today</p>
-                          <p className="mt-1 text-2xl font-black text-white">{counter.served}</p>
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600">Served Today</p>
+                          <p className="mt-1 text-2xl font-black text-slate-900">{counter.served}</p>
                         </div>
                       </div>
                     ))}

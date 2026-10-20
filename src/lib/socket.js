@@ -1,6 +1,14 @@
 import { io } from 'socket.io-client'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin
+const RAW_SOCKET_URL = import.meta.env.VITE_SOCKET_URL
+const RAW_API_URL = import.meta.env.VITE_API_URL
+const API_ORIGIN = RAW_API_URL?.startsWith('http')
+  ? new URL(RAW_API_URL).origin
+  : 'https://smartqueuebck.onrender.com'
+// Use Vite's same-origin proxy in development and connect directly to the backend in production.
+const SOCKET_URL = (!RAW_SOCKET_URL || RAW_SOCKET_URL === '/socket.io')
+  ? (import.meta.env.DEV && typeof window !== 'undefined' ? window.location.origin : API_ORIGIN)
+  : RAW_SOCKET_URL
 
 let socket = null
 

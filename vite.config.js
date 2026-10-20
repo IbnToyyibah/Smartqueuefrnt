@@ -22,7 +22,8 @@ const readBackendTarget = () => {
   return 'http://127.0.0.1:5001'
 }
 
-const backendTarget = readBackendTarget()
+// Allow overriding the backend target from the environment (useful for proxying to remote)
+const backendTarget = process.env.VITE_API_PROXY || readBackendTarget() || 'https://smartqueuebck.onrender.com'
 
 export default defineConfig({
   plugins: [

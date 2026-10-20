@@ -14,13 +14,11 @@ const PublicTrack = lazy(() => import('./pages/customer/PublicTrack'))
 const FindBranch = lazy(() => import('./pages/customer/FindBranch'))
 
 /* ── Queue display boards (public TV screens) ── */
-const Queue1 = lazy(() => import('./pages/display/Queue1'))
-const Queue2 = lazy(() => import('./pages/display/Queue2'))
-const Queue3 = lazy(() => import('./pages/display/Queue3'))
-const Queue4 = lazy(() => import('./pages/display/Queue4'))
+const QueueScreen = lazy(() => import('./pages/display/QueueScreen'))
 
 /* ── Authenticated customer ── */
 const LiveTracking = lazy(() => import('./pages/customer/LiveTracking'))
+const QueueRegistration = lazy(() => import('./pages/customer/QueueRegistration'))
 const QueueHistory = lazy(() => import('./pages/customer/QueueHistory'))
 
 /* ── Staff ── */
@@ -45,9 +43,37 @@ const Permissions = lazy(() => import('./pages/admin/Permissions'))
 const SystemSettings = lazy(() => import('./pages/admin/SystemSettings'))
 const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'))
 
-/* ──────────────────────────────────────────
-   Route guards
-────────────────────────────────────────── */
+const customerRoutes = [
+  { path: '/customer/track', element: <LiveTracking />, roles: ['customer'] },
+  { path: '/customer/register', element: <QueueRegistration />, roles: ['customer'] },
+  { path: '/customer/history', element: <QueueHistory />, roles: ['customer'] },
+]
+
+const staffRoutes = [
+  { path: '/staff/dashboard', element: <StaffDashboard />, roles: ['staff'] },
+  { path: '/staff/queue', element: <StaffQueueList />, roles: ['staff'] },
+  { path: '/staff/history', element: <QueueHistory />, roles: ['staff'] },
+]
+
+const branchAdminRoutes = [
+  { path: '/admin/branch', element: <BranchOverview />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/queues', element: <AdminQueueList />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/counters', element: <Counters />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/staff', element: <StaffManagement />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/services', element: <Services />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/analytics', element: <Analytics />, roles: ['branch_admin', 'super_admin'] },
+  { path: '/admin/reports', element: <Reports />, roles: ['branch_admin', 'super_admin'] },
+]
+
+const superAdminRoutes = [
+  { path: '/admin/super', element: <SuperAdminDashboard />, roles: ['super_admin'] },
+  { path: '/admin/branches', element: <AllBranches />, roles: ['super_admin'] },
+  { path: '/admin/users', element: <UserManagement />, roles: ['super_admin'] },
+  { path: '/admin/permissions', element: <Permissions />, roles: ['super_admin'] },
+  { path: '/admin/audit', element: <AuditLogs />, roles: ['super_admin'] },
+  { path: '/admin/system', element: <SystemSettings />, roles: ['super_admin'] },
+]
+
 function RequireAuth({ children }) {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
@@ -67,11 +93,23 @@ function RequireRole({ roles, children }) {
   return children
 }
 
-function roleHome(role) {
-  return { customer: '/customer', staff: '/staff/dashboard', branch_admin: '/admin/branch', super_admin: '/admin/super' }[role] ?? '/'
+function ProtectedRoute({ roles, element }) {
+  return (
+    <RequireAuth>
+      <RequireRole roles={roles}>{element}</RequireRole>
+    </RequireAuth>
+  )
 }
 
-/** /admin/settings — different page per role */
+function roleHome(role) {
+  return {
+    customer: '/customer',
+    staff: '/staff/dashboard',
+    branch_admin: '/admin/branch',
+    super_admin: '/admin/super',
+  }[role] ?? '/'
+}
+
 function SettingsRouter() {
   const { user } = useAuth()
   if (user?.role === 'super_admin') return <SystemSettings />
@@ -79,9 +117,6 @@ function SettingsRouter() {
   return <Navigate to={roleHome(user?.role ?? '')} replace />
 }
 
-/* ──────────────────────────────────────────
-   Routes
-────────────────────────────────────────── */
 export default function App() {
   const location = useLocation()
 
@@ -92,53 +127,30 @@ export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        {/* ── Landing ── */}
         <Route path="/" element={<Landing />} />
-
-        {/* ── Public customer flow — NO AUTH NEEDED ── */}
         <Route path="/customer" element={<CustomerHome />} />
         <Route path="/join-queue" element={<PublicJoinQueue />} />
         <Route path="/track" element={<PublicTrack />} />
         <Route path="/find-branch" element={<FindBranch />} />
-
-        {/* ── Queue display boards — public ── */}
-        <Route path="/queue" element={<Queue1 />} />
-        <Route path="/queue2" element={<Queue2 />} />
-        <Route path="/queue3" element={<Queue3 />} />
-        <Route path="/queue4" element={<Queue4 />} />
-
-        {/* ── Auth ── */}
+        <Route path="/queue" element={<QueueScreen />} />
+        <Route path="/queue2" element={<QueueScreen />} />
+        <Route path="/queue3" element={<QueueScreen />} />
+        <Route path="/queue4" element={<QueueScreen />} />
         <Route path="/login" element={<RequireGuest><Login /></RequireGuest>} />
         <Route path="/register" element={<RequireGuest><Register /></RequireGuest>} />
-
-        {/* ── Authenticated customer extras ── */}
-        <Route path="/customer/track" element={<RequireAuth><RequireRole roles={['customer']}><LiveTracking /></RequireRole></RequireAuth>} />
-        <Route path="/customer/history" element={<RequireAuth><RequireRole roles={['customer']}><QueueHistory /></RequireRole></RequireAuth>} />
-
-        {/* ── Staff ── */}
-        <Route path="/staff/dashboard" element={<RequireAuth><RequireRole roles={['staff']}><StaffDashboard /></RequireRole></RequireAuth>} />
-        <Route path="/staff/queue" element={<RequireAuth><RequireRole roles={['staff']}><StaffQueueList /></RequireRole></RequireAuth>} />
-        <Route path="/staff/history" element={<RequireAuth><RequireRole roles={['staff']}><QueueHistory /></RequireRole></RequireAuth>} />
-
-        {/* ── Branch Admin ── */}
-        <Route path="/admin/branch" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><BranchOverview /></RequireRole></RequireAuth>} />
-        <Route path="/admin/queues" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><AdminQueueList /></RequireRole></RequireAuth>} />
-        <Route path="/admin/counters" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><Counters /></RequireRole></RequireAuth>} />
-        <Route path="/admin/staff" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><StaffManagement /></RequireRole></RequireAuth>} />
-        <Route path="/admin/services" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><Services /></RequireRole></RequireAuth>} />
-        <Route path="/admin/analytics" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><Analytics /></RequireRole></RequireAuth>} />
-        <Route path="/admin/reports" element={<RequireAuth><RequireRole roles={['branch_admin', 'super_admin']}><Reports /></RequireRole></RequireAuth>} />
+        {customerRoutes.map(({ path, element, roles }) => (
+          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
+        ))}
+        {staffRoutes.map(({ path, element, roles }) => (
+          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
+        ))}
+        {branchAdminRoutes.map(({ path, element, roles }) => (
+          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
+        ))}
         <Route path="/admin/settings" element={<RequireAuth><SettingsRouter /></RequireAuth>} />
-
-        {/* ── Super Admin ── */}
-        <Route path="/admin/super" element={<RequireAuth><RequireRole roles={['super_admin']}><SuperAdminDashboard /></RequireRole></RequireAuth>} />
-        <Route path="/admin/branches" element={<RequireAuth><RequireRole roles={['super_admin']}><AllBranches /></RequireRole></RequireAuth>} />
-        <Route path="/admin/users" element={<RequireAuth><RequireRole roles={['super_admin']}><UserManagement /></RequireRole></RequireAuth>} />
-        <Route path="/admin/permissions" element={<RequireAuth><RequireRole roles={['super_admin']}><Permissions /></RequireRole></RequireAuth>} />
-        <Route path="/admin/audit" element={<RequireAuth><RequireRole roles={['super_admin']}><AuditLogs /></RequireRole></RequireAuth>} />
-        <Route path="/admin/system" element={<RequireAuth><RequireRole roles={['super_admin']}><SystemSettings /></RequireRole></RequireAuth>} />
-
-        {/* ── 404 ── */}
+        {superAdminRoutes.map(({ path, element, roles }) => (
+          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
+        ))}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
