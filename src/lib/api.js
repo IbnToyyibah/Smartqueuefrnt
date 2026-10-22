@@ -82,7 +82,7 @@ const headers = (extra = {}) => ({
   ...extra,
 })
 
-async function request(method, path, body, timeoutMs = 12000) {
+async function request(method, path, body, timeoutMs = 3600000) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
