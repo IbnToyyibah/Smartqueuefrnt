@@ -19,7 +19,7 @@ const readBackendTarget = () => {
     // Fall back to the default backend port if the cache is missing or invalid.
   }
 
-  return 'http://127.0.0.1:5001'
+  return 'http://127.0.0.1:5000'
 }
 
 // Allow overriding the backend target from the environment (useful for proxying to remote)
