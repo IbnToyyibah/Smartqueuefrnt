@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { roleHome, redirectTarget } from './lib/routes'
 
 /* ── Public pages ── */
 const Landing = lazy(() => import('./pages/Landing'))
@@ -74,41 +75,26 @@ const superAdminRoutes = [
   { path: '/admin/system', element: <SystemSettings />, roles: ['super_admin'] },
 ]
 
-function RequireAuth({ children }) {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
+// Guards wait for the stored session to be restored before deciding, so a
+// page refresh does not bounce a signed-in user through /login.
+function RequireAuth({ roles, children }) {
+  const { user, initializing } = useAuth()
+  const location = useLocation()
+  if (initializing) return <RouteFallback />
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />
+  if (roles && !roles.includes(user.role)) return <Navigate to={roleHome(user.role)} replace />
   return children
 }
 
 function RequireGuest({ children }) {
-  const { user } = useAuth()
-  if (user) return <Navigate to={roleHome(user.role)} replace />
+  const { user, initializing } = useAuth()
+  const location = useLocation()
+  if (initializing) return <RouteFallback />
+  if (user) return <Navigate to={redirectTarget(location.state?.from) || roleHome(user.role)} replace />
   return children
 }
 
-function RequireRole({ roles, children }) {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  if (!roles.includes(user.role)) return <Navigate to={roleHome(user.role)} replace />
-  return children
-}
-
-function ProtectedRoute({ roles, element }) {
-  return (
-    <RequireAuth>
-      <RequireRole roles={roles}>{element}</RequireRole>
-    </RequireAuth>
-  )
-}
-
-function roleHome(role) {
-  return {
-    customer: '/customer',
-    staff: '/staff/dashboard',
-    branch_admin: '/admin/branch',
-    super_admin: '/admin/super',
-  }[role] ?? '/'
-}
+const protectedRoutes = [...customerRoutes, ...staffRoutes, ...branchAdminRoutes, ...superAdminRoutes]
 
 function SettingsRouter() {
   const { user } = useAuth()
@@ -133,24 +119,16 @@ export default function App() {
         <Route path="/track" element={<PublicTrack />} />
         <Route path="/find-branch" element={<FindBranch />} />
         <Route path="/queue" element={<QueueScreen />} />
-        <Route path="/queue2" element={<QueueScreen />} />
-        <Route path="/queue3" element={<QueueScreen />} />
-        <Route path="/queue4" element={<QueueScreen />} />
+        <Route path="/queue/:branchId" element={<QueueScreen />} />
+        {['/queue2', '/queue3', '/queue4'].map((path) => (
+          <Route key={path} path={path} element={<Navigate to="/queue" replace />} />
+        ))}
         <Route path="/login" element={<RequireGuest><Login /></RequireGuest>} />
         <Route path="/register" element={<RequireGuest><Register /></RequireGuest>} />
-        {customerRoutes.map(({ path, element, roles }) => (
-          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
+        {protectedRoutes.map(({ path, element, roles }) => (
+          <Route key={path} path={path} element={<RequireAuth roles={roles}>{element}</RequireAuth>} />
         ))}
-        {staffRoutes.map(({ path, element, roles }) => (
-          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
-        ))}
-        {branchAdminRoutes.map(({ path, element, roles }) => (
-          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
-        ))}
-        <Route path="/admin/settings" element={<RequireAuth><SettingsRouter /></RequireAuth>} />
-        {superAdminRoutes.map(({ path, element, roles }) => (
-          <Route key={path} path={path} element={<ProtectedRoute roles={roles} element={element} />} />
-        ))}
+        <Route path="/admin/settings" element={<RequireAuth roles={['branch_admin', 'super_admin']}><SettingsRouter /></RequireAuth>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

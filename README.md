@@ -229,7 +229,3 @@ These are potential improvements rather than claims about currently implemented 
 SmartQueue aims to improve customer service delivery by reducing queue uncertainty, improving operational visibility, and providing staff with tools to manage customer flow efficiently.
 
 By combining real-time communication, digital ticketing, centralized administration, and role-based access control, the platform provides a foundation for more organized and transparent service delivery across multiple branches.
-
-## License
-
-Add the applicable license information before distributing or publishing the project. If no license has been selected, the project's licensing terms should be clarified before reuse or redistribution.

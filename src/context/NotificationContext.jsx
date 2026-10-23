@@ -3,7 +3,6 @@ import { notifApi } from '../lib/api'
 import { getSocket } from '../lib/socket'
 import { useAuth } from './AuthContext'
 import { requestWebPushPermission, getWebPushPermission, sendWebPushNotification } from '../lib/pushNotificationService'
-import { sendSMSNotification } from '../lib/smsService'
 
 const NotificationContext = createContext(null)
 let toastId = 0
@@ -32,11 +31,6 @@ export function NotificationProvider({ children }) {
   /* ── Trigger Native Web Push ── */
   const sendPushNotif = useCallback((title, options = {}) => {
     return sendWebPushNotification(title, options)
-  }, [])
-
-  /* ── Trigger SMS Notification ── */
-  const sendSMSNotif = useCallback(async (params) => {
-    return sendSMSNotification(params)
   }, [])
 
   /* ── Add toast (local only — no API) ── */
@@ -114,7 +108,7 @@ export function NotificationProvider({ children }) {
       toasts, inbox, unreadCount, pushStatus,
       notify, addToast, dismissToast,
       markRead, markAllRead,
-      enableWebPush, sendPushNotif, sendSMSNotif,
+      enableWebPush, sendPushNotif,
     }}>
       {children}
     </NotificationContext.Provider>

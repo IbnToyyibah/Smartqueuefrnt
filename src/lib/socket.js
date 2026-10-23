@@ -14,10 +14,17 @@ let socket = null
 
 export const getSocket = () => socket
 
+// Reuses the shared connection. A call without a token never downgrades an
+// authenticated socket; only a new, different token forces a reconnect.
 export const connectSocket = (token) => {
   if (socket) {
-    socket.auth = { token: token || '' }
-    if (!socket.connected) socket.connect()
+    const currentToken = socket.auth?.token || ''
+    if (token && token !== currentToken) {
+      socket.auth = { token }
+      socket.disconnect().connect()
+    } else if (!socket.connected) {
+      socket.connect()
+    }
     return socket
   }
 
@@ -55,14 +62,6 @@ export const joinBranch = (branchId) => {
 
 export const leaveBranch = (branchId) => {
   socket?.emit('leave:branch', { branchId })
-}
-
-export const joinQueue = (queueId) => {
-  socket?.emit('join:queue', queueId)
-}
-
-export const leaveQueue = (queueId) => {
-  socket?.emit('leave:queue', queueId)
 }
 
 export const joinUserRoom = (userId) => {

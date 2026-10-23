@@ -6,23 +6,17 @@ import {
   MdDashboard, MdArrowForward,
 } from 'react-icons/md'
 import { useAuth } from '../../context/AuthContext'
+import { roleHome, redirectTarget } from '../../lib/routes'
 import { useNotifications } from '../../context/NotificationContext'
 import PublicLayout from '../../components/layout/PublicLayout'
 import Button from '../../components/ui/Button'
-
-const ROLE_HOME = {
-  customer: '/customer',
-  staff: '/staff/dashboard',
-  branch_admin: '/admin/branch',
-  super_admin: '/admin/super',
-}
 
 export default function Login() {
   const { login, loading, error } = useAuth()
   const { notify } = useNotifications()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from || null
+  const from = redirectTarget(location.state?.from)
 
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPw, setShowPw] = useState(false)
@@ -34,7 +28,7 @@ export default function Login() {
     const res = await login(form.email, form.password)
     if (res.success) {
       notify('success', 'Welcome back!', `Signed in as ${res.user.name}`)
-      navigate(from ?? ROLE_HOME[res.user.role] ?? '/')
+      navigate(from || roleHome(res.user.role), { replace: true })
     }
   }
 

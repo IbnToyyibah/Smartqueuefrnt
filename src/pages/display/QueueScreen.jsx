@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { MdRefresh, MdVolumeUp } from 'react-icons/md'
 import { branchApi, queueApi } from '../../lib/api'
 import { connectSocket, joinBranch, leaveBranch } from '../../lib/socket'
@@ -7,8 +7,11 @@ import { connectSocket, joinBranch, leaveBranch } from '../../lib/socket'
 const REFRESH_MS = 20000
 
 export default function QueueScreen() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const branchId = searchParams.get('branch') || ''
+  const navigate = useNavigate()
+  const params = useParams()
+  const [searchParams] = useSearchParams()
+  // /queue/:branchId is canonical; ?branch= is kept for older display links.
+  const branchId = params.branchId || searchParams.get('branch') || ''
   const [branches, setBranches] = useState([])
   const [branch, setBranch] = useState(null)
   const [tickets, setTickets] = useState([])
@@ -44,7 +47,7 @@ export default function QueueScreen() {
 
     const initialRefresh = window.setTimeout(refresh, 0)
     const interval = window.setInterval(refresh, REFRESH_MS)
-    const socket = connectSocket(localStorage.getItem('sq_token') || '')
+    const socket = connectSocket()
     const subscribe = () => joinBranch(branchId)
     socket.on('connect', subscribe)
     if (socket.connected) subscribe()
@@ -69,7 +72,7 @@ export default function QueueScreen() {
   const waiting = useMemo(() => tickets.filter((ticket) => ticket.status === 'waiting').sort((a, b) => (a.position || 0) - (b.position || 0)), [tickets])
   const setBranchId = (id) => {
     setLoading(Boolean(id))
-    setSearchParams(id ? { branch: id } : {})
+    navigate(id ? `/queue/${encodeURIComponent(id)}` : '/queue')
   }
 
   return (
