@@ -1,120 +1,235 @@
 # SmartQueue
+### Real-Time Queue Management System
 
-SmartQueue is a real-time queue management system for organizations that serve customers at physical branches. Customers can find a branch, join a service queue, and follow their ticket, while staff and administrators manage service counters and monitor branch activity.
+## Overview
 
-The application is an MVP built as a React single-page app and an Express API. The frontend lives in `smartqueue/`; the backend is in the sibling `server/` directory.
+SmartQueue is a real-time queue management system designed to help organizations manage customer queues efficiently across physical branches. It provides a centralized platform where customers can find branches, select services, join queues, receive digital tickets, and monitor their queue progress in real time.
 
-## MVP features
+The platform also enables staff to manage service counters, process customer tickets, and monitor queue activity, while branch administrators and platform administrators oversee operations, users, services, analytics, and system configurations.
 
-- **Customer queue access:** browse branches and services, join a queue with or without an account, receive a ticket with a QR code, and look up or track queue progress.
-- **Live queue updates:** see ticket status, queue position, estimated wait, and public branch display boards update in real time.
-- **Staff workflows:** view the branch queue, call the next ticket, and mark tickets served, no-show, skipped, recalled, or transferred between counters.
-- **Branch administration:** manage branch details, services, counters, staff, queue activity, analytics, and reports.
-- **Platform administration:** oversee branches and users, manage permissions and system settings, review audit logs, and manage branch subscriptions.
-- **Notifications:** in-app notifications, with optional transactional email through Brevo and SMS through Twilio.
-- **Access control:** role-based experiences for customers, staff, branch administrators, and super administrators.
+SmartQueue is developed as a Minimum Viable Product (MVP) using a React-based frontend and an Express.js backend, with Supabase providing data services and Socket.IO enabling real-time communication.
 
-## Technology
+## Key Features
 
-| Area | Stack |
-| Frontend | React 19, Vite, React Router, Tailwind CSS, Framer Motion |
-| Backend | Node.js, Express, Socket.IO |
-| Data | Supabase |
-| Queue extras | QR code generation, optional Brevo email and Twilio SMS |
+### 1. Customer Queue Management
+- Browse available branches and services.
+- Join service queues with or without an account.
+- Receive digital queue tickets with QR codes.
+- Track ticket status and queue position.
+- View estimated waiting times and service progress.
 
-## Project layout
+### 2. Real-Time Queue Updates
+- Receive live updates on ticket status and queue position.
+- Monitor estimated waiting times.
+- Display current queue information on public branch display boards.
+- Synchronize queue activity between customers and staff.
 
-text
-SmartQueue/
-├── server/             # Express API, queue services, and Socket.IO server
-└── smartqueue/         # React/Vite frontend (this directory)
-```
+### 3. Staff Operations
+- View and manage queues assigned to their branches.
+- Call the next customer in line.
+- Mark tickets as served, skipped, or no-show.
+- Recall tickets when necessary.
+- Transfer customers between service counters.
 
-## Requirements
+### 4. Branch Administration
+- Manage branch information and services.
+- Configure service counters.
+- Manage branch staff and operational activities.
+- Monitor queue performance and customer flow.
+- Access analytics and operational reports.
 
-- Node.js 20.19+ (or 22.12+) and npm
-- A Supabase project configured for the backend's application data
-- Optional: Brevo credentials for email and Twilio credentials for SMS
+### 5. Platform Administration
+- Oversee registered branches and users.
+- Manage system permissions and settings.
+- Review audit logs.
+- Manage branch subscriptions.
+- Monitor platform-wide activity.
 
-## Run locally
+### 6. Notifications
+- Provide in-app notifications.
+- Support optional transactional email delivery through Brevo.
+- Support optional SMS notifications through Twilio.
 
-Open two terminals from the project root.
+### 7. Role-Based Access Control
+SmartQueue provides role-specific functionality for:
+- Customers
+- Service staff
+- Branch administrators
+- Super administrators
 
-### 1. Configure and start the backend
+Each role receives access to the relevant features and operational tools.
 
-Create `server/.env` from `server/.env.example` and set at least:
+## Technology Stack
 
-```
+| Component | Technology |
+|---|---|
+| Frontend | React 19 |
+| Development and Build Tool | Vite |
+| Routing | React Router |
+| Styling | Tailwind CSS |
+| Animations | Framer Motion |
+| Backend | Node.js and Express.js |
+| Real-Time Communication | Socket.IO |
+| Database and Backend Services | Supabase |
+| Ticket Identification | QR Code Generation |
+| Email Notifications | Brevo |
+| SMS Notifications | Twilio |
 
-Then install dependencies and start the API:
+Brevo and Twilio are optional integrations and require their respective credentials.
 
-```sh
-cd server
-npm install
-npm run dev
-```
+## Project Structure
 
-The API listens on port `5001` by default. Its basic health check is available at `http://localhost:5001/health`.
+The project is organized into two primary application directories:
 
-### 2. Configure and start the frontend
+- **server/** — Contains the Express.js API, queue management services, backend logic, and Socket.IO server.
+- **smartqueue/** — Contains the React frontend, user interface, routing, styling, and client-side application logic.
 
-Create `smartqueue/.env` from `smartqueue/.env.example`. The default `VITE_API_URL=/api` uses the Vite development proxy; no additional API URL is needed for local development.
+This separation supports independent frontend and backend development, testing, and deployment.
 
-```sh
-cd smartqueue
-npm install
-npm run dev
-```
+## Getting Started
 
-Open the local URL printed by Vite (normally `http://localhost:5173`).
+### Prerequisites
 
-### Optional notification providers
+Before setting up SmartQueue, ensure that the following are available:
 
-Add these to `server/.env` only if you want to enable outbound notifications:
+- Node.js and npm
+- A configured Supabase project
+- The SmartQueue project files
+- Environment variables required by the frontend and backend
 
-```dotenv
-BREVO_API_KEY=
-BREVO_SENDER_EMAIL=
-BREVO_SENDER_NAME=SmartQueue
+### Installation and Setup
 
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-```
+**1. Configure the backend**
 
-Keep secrets in local environment files; do not commit them.
+Navigate to the server directory, install the required dependencies, and configure the backend environment variables using the project's environment template.
 
-## Scripts
+Provide the necessary Supabase configuration and other required backend settings before starting the API.
 
-Run these commands from the relevant application directory:
+**2. Configure the frontend**
 
-| Directory | Command | Purpose |
-| --- | --- | --- |
-| `smartqueue/` | `npm run dev` | Start the Vite development server |
-| `smartqueue/` | `npm run build` | Create the production frontend build in `dist/` |
-| `smartqueue/` | `npm run preview` | Preview the production frontend build |
-| `smartqueue/` | `npm run lint` | Run ESLint |
-| `server/` | `npm run dev` | Start the API with Nodemon |
-| `server/` | `npm start` | Start the API |
-| `server/` | `npm run seed` | Run the backend seed script |
+Navigate to the smartqueue directory and install the frontend dependencies.
 
-## API and real-time services
+Create the frontend environment file using the provided example configuration. The default API configuration uses the Vite development proxy for local development.
 
-The backend exposes its API under `/api`, including authentication, queue, branch, counter, user, notification, and analytics routes. Socket.IO is used for live queue events and display updates. The Vite development server proxies `/api` and `/socket.io` to the backend.
+**3. Start the backend**
 
-Useful endpoints:
+Run the backend development script from the server directory. This starts the Express API and its associated real-time services.
 
-- `GET /health` — backend health and database readiness
-- `GET /api/health` — API health and database readiness
-- `GET /api/health/db` — database backend status
+**4. Start the frontend**
 
-## Deployment notes
+Run the frontend development script from the smartqueue directory. Open the local URL displayed by Vite in your browser.
 
-- Build the frontend with `npm run build` from `smartqueue/` and deploy the generated `dist/` directory to a static hosting provider.
-- Run the Express application from `server/` on a Node.js host and configure the production environment variables there.
-- Set the frontend API URL and, where applicable, Socket.IO URL for the deployed backend. Configure the backend's `CLIENT_URL` or `CLIENT_URLS` to allow the deployed frontend origin.
-- The frontend includes Vercel rewrite configuration, and the Vite development proxy is for local development only.
+The frontend normally runs at `http://localhost:5173` during local development.
 
-## MVP scope
+Refer to the project's environment templates and package scripts for the exact configuration required by your installation.
 
-SmartQueue is an MVP and requires a configured Supabase project and production service credentials for deployed use. Email and SMS delivery are optional integrations; queue management and in-app workflows do not require those providers.
+## Environment Configuration
+
+SmartQueue uses environment variables to configure connections and external services.
+
+The backend requires the appropriate Supabase settings and any other environment values defined by the server configuration.
+
+For optional outbound notifications, configure the following services:
+
+- **Brevo:** API key, sender email address, and sender name.
+- **Twilio:** Account SID, authentication token, and phone number.
+
+Keep all credentials in local environment files or securely managed deployment environment variables. Never commit API keys, authentication tokens, or other secrets to version control.
+
+## Available Scripts
+
+The project provides scripts for development, production builds, code quality checks, and database seeding.
+
+### Frontend Scripts
+
+| Script | Purpose |
+|---|---|
+| Development | Starts the Vite development server. |
+| Build | Generates the production frontend build in the distribution directory. |
+| Preview | Previews the production build locally. |
+| Lint | Runs ESLint to identify code quality issues. |
+
+### Backend Scripts
+
+| Script | Purpose |
+|---|---|
+| Development | Starts the API with Nodemon for automatic restarts during development. |
+| Start | Starts the backend application. |
+| Seed | Runs the backend seed script. |
+
+Run each script from its respective application directory.
+
+## API and Real-Time Communication
+
+The backend exposes REST API endpoints under the `/api` prefix for authentication, queue management, branches, counters, users, notifications, and analytics.
+
+Socket.IO provides real-time communication for queue events and public display updates.
+
+During local development, the Vite development server proxies API requests and Socket.IO connections to the backend.
+
+### Health Check Endpoints
+
+- **Backend health:** `GET /health`
+- **API health:** `GET /api/health`
+- **Database health:** `GET /api/health/db`
+
+These endpoints help verify backend availability and assess database connectivity or readiness.
+
+## Deployment
+
+SmartQueue supports separate frontend and backend deployment.
+
+### Frontend Deployment
+Build the React application and deploy the generated distribution directory to a suitable static hosting provider.
+
+### Backend Deployment
+Deploy the Express application to a Node.js-compatible hosting environment and configure the necessary production environment variables.
+
+### Production Configuration
+Before deployment:
+
+- Configure the production Supabase connection.
+- Set the correct frontend API URL.
+- Configure the Socket.IO connection URL where required.
+- Set the backend's allowed frontend origins through `CLIENT_URL` or `CLIENT_URLS`.
+- Configure any required email or SMS provider credentials.
+- Verify that frontend routing and API requests work correctly in production.
+
+The project includes Vercel rewrite configuration. The Vite development proxy is intended for local development and should not be treated as a substitute for production backend configuration.
+
+## Security and Access Control
+
+SmartQueue uses role-based access control to provide different operational capabilities to customers, staff, branch administrators, and super administrators.
+
+For production deployments, ensure that authentication, authorization, database access policies, environment variables, and API endpoints are configured securely. Sensitive credentials should never be exposed in frontend code or committed to the repository.
+
+## Current Project Scope
+
+SmartQueue is an MVP intended to demonstrate a practical, real-time queue management workflow for organizations operating physical service branches.
+
+Its core functionality covers customer queue access, digital tickets, live queue tracking, staff workflows, branch administration, platform administration, and operational reporting.
+
+A configured Supabase project and the required production credentials are necessary for deployment. Email and SMS delivery are optional integrations and are not required for the core queue management and in-app notification workflows.
+
+## Future Enhancements
+
+Potential areas for future development include:
+
+- Advanced queue analytics and predictive waiting-time estimates.
+- Enhanced customer feedback and satisfaction reporting.
+- Additional notification channels.
+- Improved accessibility and mobile user experience.
+- Expanded reporting and performance dashboards.
+- Integration with external customer management systems.
+
+These are potential improvements rather than claims about currently implemented functionality.
+
+## Conclusion
+
+SmartQueue aims to improve customer service delivery by reducing queue uncertainty, improving operational visibility, and providing staff with tools to manage customer flow efficiently.
+
+By combining real-time communication, digital ticketing, centralized administration, and role-based access control, the platform provides a foundation for more organized and transparent service delivery across multiple branches.
+
+## License
+
+Add the applicable license information before distributing or publishing the project. If no license has been selected, the project's licensing terms should be clarified before reuse or redistribution.
