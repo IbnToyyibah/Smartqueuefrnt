@@ -78,8 +78,10 @@ export default function StaffDashboard() {
   useEffect(() => {
     if (!branchId) return
 
-    const sock = connectSocket('')
-    joinBranch(branchId)
+    const sock = connectSocket()
+    const subscribe = () => joinBranch(branchId)
+    sock.on('connect', subscribe)
+    if (sock.connected) subscribe()
 
     const handleQueueUpdate = () => {
       loadBranchData(branchId)
@@ -100,6 +102,7 @@ export default function StaffDashboard() {
       sock?.off('queue:served', handleQueueUpdate)
       sock?.off('queue:noshow', handleQueueUpdate)
       sock?.off('queue:skipped', handleQueueUpdate)
+      sock?.off('connect', subscribe)
       leaveBranch(branchId)
     }
   }, [branchId, loadBranchData])

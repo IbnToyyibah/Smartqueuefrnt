@@ -7,8 +7,8 @@ import {
 } from 'react-icons/md'
 import { useQueue } from '../../context/QueueContext'
 import { useNotifications } from '../../context/NotificationContext'
-import { queueApi } from '../../lib/api'
-import { getSocket, joinBranch } from '../../lib/socket'
+import { queueApi, mergeTicketUpdate } from '../../lib/api'
+import { connectSocket, joinBranch } from '../../lib/socket'
 import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/layout/PageHeader'
 import Badge from '../../components/ui/Badge'
@@ -92,14 +92,15 @@ export default function LiveTracking() {
 
   /* ── Socket live updates ── */
   useEffect(() => {
-    const sock = getSocket()
-    if (!sock || !currentTicket) return
+    if (!currentTicket) return
+    const sock = connectSocket()
     const activeId = currentTicket._id || currentTicket.id
     const handler = (updated) => {
       const updatedId = updated?._id || updated?.id
-      if (updatedId === activeId || (updated?.ticketNumber && updated.ticketNumber === currentTicket.ticketNumber)) {
-        setTicket(updated)
-        setActiveTicket(updated)
+      if (updatedId === activeId) {
+        const merged = mergeTicketUpdate(currentTicket, updated)
+        setTicket(merged)
+        setActiveTicket(merged)
         setLastUpdate(new Date())
       }
     }

@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
-import { queueApi, branchApi, counterApi } from '../lib/api'
-import { getSocket, joinBranch, leaveBranch } from '../lib/socket'
+import { queueApi, branchApi, counterApi, normalizeCounter, mergeTicketUpdate } from '../lib/api'
+import { connectSocket, joinBranch, leaveBranch } from '../lib/socket'
 import { useAuth } from './AuthContext'
 import { SERVICE_TYPES } from '../constants/services'
 import { calculateDynamicWaitTime } from '../lib/queueHelpers'
 import { sendWebPushNotification } from '../lib/pushNotificationService'
-import { sendSMSNotification } from '../lib/smsService'
 
 const QueueContext = createContext(null)
+
+const sameId = (a, b) => Boolean(a && b) && String(a._id || a.id) === String(b._id || b.id)
 
 export { SERVICE_TYPES }
 
@@ -43,51 +44,48 @@ export function QueueProvider({ children }) {
   }, [user])
 
   useEffect(() => {
-    const sock = getSocket()
-    if (!sock || !activeBranch) return
+    if (!activeBranch) return
+    const sock = connectSocket()
+    const subscribe = () => joinBranch(activeBranch)
+    sock.on('connect', subscribe)
+    if (sock.connected) subscribe()
+    return () => {
+      sock.off('connect', subscribe)
+      leaveBranch(activeBranch)
+    }
+  }, [activeBranch, user?._id])
 
-    joinBranch(activeBranch)
-    return () => leaveBranch(activeBranch)
-  }, [activeBranch])
-
-  const mergeTicket = useCallback((ticket) => {
+  const mergeTicket = useCallback((update) => {
+    const ticket = mergeTicketUpdate(null, update)
     setQueue((prevQueue) => {
-      const index = prevQueue.findIndex((item) => item._id === ticket._id || item.id === ticket.id)
+      const index = prevQueue.findIndex((item) => sameId(item, ticket))
       if (index === -1) return [ticket, ...prevQueue]
       const next = [...prevQueue]
-      next[index] = ticket
+      next[index] = mergeTicketUpdate(prevQueue[index], update)
       return next
     })
 
     setActiveTicket((currentTicket) => {
-      const isMatch = currentTicket && (currentTicket._id === ticket._id || currentTicket.id === ticket.id)
+      const isMatch = sameId(currentTicket, ticket)
       if (!isMatch) return currentTicket
+      const merged = mergeTicketUpdate(currentTicket, update)
 
-      // Real-time Push & SMS Notifications on Ticket Status Update
+      // Browser push on status change; SMS/email are sent by the server.
       if (ticket.status === 'called' && currentTicket.status !== 'called') {
         sendWebPushNotification(`Ticket #${ticket.ticketNumber} Called!`, {
           body: `Please proceed to ${ticket.counter?.name || ticket.counter || 'your assigned counter'} now.`,
           tag: `called-${ticket._id}`,
         })
-
-        if (ticket.phone) {
-          sendSMSNotification({
-            phone: ticket.phone,
-            ticketNumber: ticket.ticketNumber,
-            status: 'called',
-            counterName: ticket.counter?.name || ticket.counter || 'Counter 1',
-            serviceName: ticket.service?.label || ticket.service?.name || 'Service',
-          }).catch(console.error)
-        }
       }
 
-      return ticket
+      return merged
     })
   }, [])
 
-  const mergeCounter = useCallback((counter) => {
+  const mergeCounter = useCallback((rawCounter) => {
+    const counter = normalizeCounter(rawCounter)
     setCounters((prevCounters) => {
-      const index = prevCounters.findIndex((item) => item._id === counter._id)
+      const index = prevCounters.findIndex((item) => sameId(item, counter))
       if (index === -1) return [...prevCounters, counter]
       const next = [...prevCounters]
       next[index] = counter
@@ -96,8 +94,8 @@ export function QueueProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    const sock = getSocket()
-    if (!sock) return
+    // Re-run when the user changes: logout tears down the socket and its listeners.
+    const sock = connectSocket()
 
     const handlers = {
       'queue:joined': mergeTicket,
@@ -110,7 +108,7 @@ export function QueueProvider({ children }) {
 
     Object.entries(handlers).forEach(([event, handler]) => sock.on(event, handler))
     return () => Object.entries(handlers).forEach(([event, handler]) => sock.off(event, handler))
-  }, [mergeTicket, mergeCounter])
+  }, [mergeTicket, mergeCounter, user?._id])
 
   const loadBranchData = useCallback(async (branchId) => {
     if (!branchId) return
@@ -173,18 +171,6 @@ export function QueueProvider({ children }) {
     const { ticket } = await queueApi.join(data)
     setActiveTicket(ticket)
     setActiveBranch(ticket.branch?._id || ticket.branch)
-
-    // Trigger SMS on Queue Registration
-    if (data.phone || ticket.phone) {
-      sendSMSNotification({
-        phone: data.phone || ticket.phone,
-        ticketNumber: ticket.ticketNumber,
-        status: 'joined',
-        serviceName: ticket.service?.label || ticket.service?.name || 'Service',
-        estimatedWait: ticket.estimatedWait || 10,
-      }).catch(console.error)
-    }
-
     return ticket
   }, [])
 
@@ -197,28 +183,28 @@ export function QueueProvider({ children }) {
     const nextTicket = queue.find((ticket) => ['waiting', 'checked_in'].includes(ticket.status))
     if (!nextTicket) return null
 
-    const { ticket } = await queueApi.callNext(nextTicket._id, { counterId })
+    const { ticket } = await queueApi.callNext(nextTicket._id, { counter_id: counterId })
     return ticket
   }, [getCurrentBranchId, queue])
 
   const markServed = useCallback(async (ticketId, counterId) => {
-    const { ticket } = await queueApi.serve(ticketId, { counterId })
+    const { ticket } = await queueApi.serve(ticketId, { counter_id: counterId })
     return ticket
   }, [])
 
   const markNoShow = useCallback(async (ticketId, counterId) => {
-    const { ticket } = await queueApi.noShow(ticketId, { counterId })
+    const { ticket } = await queueApi.noShow(ticketId, { counter_id: counterId })
     return ticket
   }, [])
 
   const toggleCounter = useCallback(async (counterId) => {
     const { counter } = await counterApi.toggle(counterId)
-    setCounters((prev) => prev.map((item) => (item._id === counter._id ? counter : item)))
+    setCounters((prev) => prev.map((item) => (sameId(item, counter) ? counter : item)))
     return counter
   }, [])
 
   const transferTicket = useCallback(async (ticketId, toCounterId) => {
-    const { ticket } = await queueApi.transfer(ticketId, { toCounterId })
+    const { ticket } = await queueApi.transfer(ticketId, { to_counter_id: toCounterId })
     return ticket
   }, [])
 

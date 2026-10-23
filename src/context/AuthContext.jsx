@@ -8,7 +8,9 @@ const TOKEN_KEY = 'sq_token'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)))
+  const [loading, setLoading] = useState(false)
+  // True only while a stored session is being restored on first load.
+  const [initializing, setInitializing] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)))
   const [error, setError] = useState(null)
 
   /* ── Restore session on mount ── */
@@ -29,7 +31,7 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(TOKEN_KEY)
       })
       .finally(() => {
-        if (alive) setLoading(false)
+        if (alive) setInitializing(false)
       })
 
     return () => {
@@ -96,7 +98,7 @@ export function AuthProvider({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, register, logout, updateProfile, isRole }}>
+    <AuthContext.Provider value={{ user, loading, initializing, error, login, register, logout, updateProfile, isRole }}>
       {children}
     </AuthContext.Provider>
   )

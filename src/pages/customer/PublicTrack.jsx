@@ -6,7 +6,7 @@ import {
   MdArrowForward, MdNotifications,
 } from 'react-icons/md'
 import { connectSocket, joinBranch } from '../../lib/socket'
-import { queueApi } from '../../lib/api'
+import { queueApi, mergeTicketUpdate } from '../../lib/api'
 import PublicLayout from '../../components/layout/PublicLayout'
 import Badge from '../../components/ui/Badge'
 import QRCodeDisplay from '../../components/ui/QRCodeDisplay'
@@ -66,16 +66,18 @@ export default function PublicTrack() {
   useEffect(() => {
     const branchId = ticket?.branch?._id || ticket?.branch?.id || (typeof ticket?.branch === 'string' ? ticket.branch : null)
     if (!branchId) return
-    const sock = connectSocket('')
-    joinBranch(branchId)
+    const sock = connectSocket()
+    const subscribe = () => joinBranch(branchId)
+    sock.on('connect', subscribe)
+    if (sock.connected) subscribe()
     const refresh = (updated) => {
       const activeId = ticket?._id || ticket?.id
       const updatedId = updated?._id || updated?.id
-      if ((activeId && updatedId === activeId) || (updated.ticketNumber && updated.ticketNumber === ticket?.ticketNumber)) {
-        setTicket(updated)
+      if (activeId && updatedId === activeId) {
+        setTicket((current) => mergeTicketUpdate(current, updated))
         setLastUpdate(new Date())
       }
-      if (['called', 'serving'].includes(updated?.status)) setNowServing(updated.ticketNumber)
+      if (['called', 'serving'].includes(updated?.status)) setNowServing(updated.ticketNumber || updated.ticket_number)
     }
     sock.on('queue:called', refresh)
     sock.on('queue:served', refresh)
@@ -86,6 +88,7 @@ export default function PublicTrack() {
       sock.off('queue:served', refresh)
       sock.off('queue:checkedin', refresh)
       sock.off('queue:skipped', refresh)
+      sock.off('connect', subscribe)
     }
   }, [ticket])
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -15,64 +15,30 @@ import PageHeader from '../../components/layout/PageHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
+import { useQueue } from '../../context/QueueContext'
+import { useNotifications } from '../../context/NotificationContext'
+import { queueApi } from '../../lib/api'
 
-const MOCK_HISTORY = [
-  {
-    id: 'h1',
-    ticketNumber: 'A011',
-    service: 'General Inquiry',
-    branch: 'Lagos Main Branch',
-    date: '2026-07-18',
-    status: 'served',
-    waitTime: 14,
-    serviceTime: 8,
-    rating: 5,
-  },
-  {
-    id: 'h2',
-    ticketNumber: 'A007',
-    service: 'Account Services',
-    branch: 'Lagos Main Branch',
-    date: '2026-07-15',
-    status: 'served',
-    waitTime: 22,
-    serviceTime: 12,
-    rating: 4,
-  },
-  {
-    id: 'h3',
-    ticketNumber: 'A003',
-    service: 'Document Processing',
-    branch: 'Abuja Central Office',
-    date: '2026-07-10',
-    status: 'noshow',
-    waitTime: null,
-    serviceTime: null,
-    rating: null,
-  },
-  {
-    id: 'h4',
-    ticketNumber: 'B015',
-    service: 'Medical Consultation',
-    branch: 'Port Harcourt Branch',
-    date: '2026-07-05',
-    status: 'served',
-    waitTime: 31,
-    serviceTime: 15,
-    rating: 5,
-  },
-  {
-    id: 'h5',
-    ticketNumber: 'A019',
-    service: 'Loans & Credit',
-    branch: 'Lagos Main Branch',
-    date: '2026-06-28',
-    status: 'served',
-    waitTime: 18,
-    serviceTime: 20,
-    rating: 3,
-  },
-]
+const minutesBetween = (from, to) => {
+  if (!from || !to) return null
+  const minutes = Math.round((new Date(to) - new Date(from)) / 60000)
+  return Number.isFinite(minutes) && minutes >= 0 ? minutes : null
+}
+
+const STATUS_LABEL = { served: 'Served', noshow: 'No-show', cancelled: 'Cancelled' }
+
+// Shapes a /queue/history ticket into the row this page renders.
+const toHistoryRow = (ticket, branchNames) => ({
+  id: ticket._id || ticket.id,
+  ticketNumber: ticket.ticketNumber || '',
+  service: ticket.service?.name || ticket.service?.label || 'Service',
+  branch: ticket.branch?.name || branchNames.get(String(ticket.branch)) || '',
+  date: ticket.created_at,
+  status: ticket.status,
+  waitTime: minutesBetween(ticket.created_at, ticket.called_at || ticket.served_at),
+  serviceTime: minutesBetween(ticket.called_at, ticket.served_at),
+  rating: ticket.rating ?? null,
+})
 
 function StarRating({ value, onChange }) {
   return (
@@ -96,8 +62,27 @@ export default function QueueHistory() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [ratings, setRatings] = useState({})
+  const [tickets, setTickets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const { branches } = useQueue()
+  const { notify } = useNotifications()
 
-  const filtered = MOCK_HISTORY.filter((h) => {
+  useEffect(() => {
+    let alive = true
+    queueApi.history()
+      .then(({ tickets: list }) => { if (alive) setTickets(Array.isArray(list) ? list : []) })
+      .catch((err) => { if (alive) setLoadError(err.message || 'Could not load your queue history.') })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
+  const history = useMemo(() => {
+    const branchNames = new Map(branches.map((b) => [String(b._id || b.id), b.name]))
+    return tickets.map((t) => toHistoryRow(t, branchNames))
+  }, [tickets, branches])
+
+  const filtered = history.filter((h) => {
     const matchSearch =
       h.ticketNumber.toLowerCase().includes(search.toLowerCase()) ||
       h.service.toLowerCase().includes(search.toLowerCase()) ||
@@ -106,8 +91,16 @@ export default function QueueHistory() {
     return matchSearch && matchFilter
   })
 
-  const setRating = (id, val) =>
+  const setRating = async (id, val) => {
+    const previous = ratings[id]
     setRatings((r) => ({ ...r, [id]: val }))
+    try {
+      await queueApi.rate(id, { rating: val })
+    } catch (err) {
+      setRatings((r) => ({ ...r, [id]: previous }))
+      notify('error', 'Rating not saved', err.message || 'Please try again.')
+    }
+  }
 
   return (
     <AppLayout>
@@ -125,13 +118,13 @@ export default function QueueHistory() {
       {/* summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total visits',   value: MOCK_HISTORY.length,                                   color: 'bg-indigo-50 text-indigo-600' },
-          { label: 'Served',         value: MOCK_HISTORY.filter((h) => h.status === 'served').length, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'No-shows',       value: MOCK_HISTORY.filter((h) => h.status === 'noshow').length, color: 'bg-red-50 text-red-500' },
+          { label: 'Total visits',   value: history.length,                                   color: 'bg-indigo-50 text-indigo-600' },
+          { label: 'Served',         value: history.filter((h) => h.status === 'served').length, color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'No-shows',       value: history.filter((h) => h.status === 'noshow').length, color: 'bg-red-50 text-red-500' },
           {
             label: 'Avg. wait',
             value: (() => {
-              const times = MOCK_HISTORY.filter((h) => h.waitTime).map((h) => h.waitTime)
+              const times = history.filter((h) => h.waitTime).map((h) => h.waitTime)
               return times.length ? `${Math.round(times.reduce((a, b) => a + b, 0) / times.length)} min` : '—'
             })(),
             color: 'bg-amber-50 text-amber-600',
@@ -173,11 +166,21 @@ export default function QueueHistory() {
       </div>
 
       {/* list */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : loadError ? (
         <EmptyState
           icon={<MdHistory size={32} />}
-          title="No records found"
-          description="Try adjusting your search or filter."
+          title="History unavailable"
+          description={loadError}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<MdHistory size={32} />}
+          title={history.length ? 'No records found' : 'No visits yet'}
+          description={history.length ? 'Try adjusting your search or filter.' : 'Tickets you complete will appear here.'}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -204,22 +207,22 @@ export default function QueueHistory() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-bold text-slate-800">{h.ticketNumber}</span>
                   <Badge variant={h.status} size="sm">
-                    {h.status === 'served' ? 'Served' : 'No-show'}
+                    {STATUS_LABEL[h.status] || h.status}
                   </Badge>
                 </div>
                 <p className="text-sm text-slate-600 mt-0.5">{h.service}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{h.branch}</p>
+                {h.branch && <p className="text-xs text-slate-400 mt-0.5">{h.branch}</p>}
               </div>
 
               {/* stats */}
               <div className="flex items-center gap-4 text-center shrink-0">
-                {h.waitTime && (
+                {h.waitTime != null && (
                   <div>
                     <p className="text-xs text-slate-400">Wait</p>
                     <p className="text-sm font-bold text-slate-700">{h.waitTime}m</p>
                   </div>
                 )}
-                {h.serviceTime && (
+                {h.serviceTime != null && (
                   <div>
                     <p className="text-xs text-slate-400">Service</p>
                     <p className="text-sm font-bold text-slate-700">{h.serviceTime}m</p>
@@ -227,7 +230,7 @@ export default function QueueHistory() {
                 )}
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">
-                    {new Date(h.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    {h.date && new Date(h.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   </p>
                   {h.status === 'served' && (
                     <StarRating
