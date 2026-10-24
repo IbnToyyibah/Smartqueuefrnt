@@ -5,10 +5,16 @@ const RAW_API_URL = import.meta.env.VITE_API_URL
 const API_ORIGIN = RAW_API_URL?.startsWith('http')
   ? new URL(RAW_API_URL).origin
   : 'https://smartqueuebck.onrender.com'
-// Use Vite's same-origin proxy in development and connect directly to the backend in production.
-const SOCKET_URL = (!RAW_SOCKET_URL || RAW_SOCKET_URL === '/socket.io')
-  ? (import.meta.env.DEV && typeof window !== 'undefined' ? window.location.origin : API_ORIGIN)
-  : RAW_SOCKET_URL
+const DEFAULT_SOCKET_ORIGIN =
+  import.meta.env.DEV && typeof window !== 'undefined' ? window.location.origin : API_ORIGIN
+const configuredSocketUrl = RAW_SOCKET_URL && RAW_SOCKET_URL !== '/socket.io'
+  ? new URL(RAW_SOCKET_URL, DEFAULT_SOCKET_ORIGIN)
+  : new URL(DEFAULT_SOCKET_ORIGIN)
+// A Socket.IO endpoint URL is a transport path, not a namespace.
+const SOCKET_URL = configuredSocketUrl.origin
+const SOCKET_PATH = configuredSocketUrl.pathname === '/'
+  ? '/socket.io'
+  : configuredSocketUrl.pathname
 
 let socket = null
 
@@ -29,6 +35,7 @@ export const connectSocket = (token) => {
   }
 
   socket = io(SOCKET_URL, {
+    path: SOCKET_PATH,
     auth: { token: token || '' },
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 5,

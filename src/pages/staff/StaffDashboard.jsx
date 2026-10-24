@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  MdCheckCircle,
-  MdDashboard,
-  MdPause,
-  MdPlayArrow,
-  MdRefresh,
-  MdSkipNext,
-  MdSwapHoriz,
-} from 'react-icons/md'
+import { MdCheckCircle, MdDashboard, MdPause, MdPlayArrow, MdRefresh, MdSkipNext, MdSwapHoriz, } from 'react-icons/md'
 import { useQueue } from '../../context/QueueContext'
 import { useAuth } from '../../context/AuthContext'
 import { useNotifications } from '../../context/NotificationContext'
@@ -228,11 +220,10 @@ export default function StaffDashboard() {
               <button
                 key={item}
                 onClick={() => setTab(item)}
-                className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] transition-colors ${
-                  tab === item
+                className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] transition-colors ${tab === item
                     ? 'border-blue-300 bg-blue-100 text-blue-700'
                     : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {item}
               </button>
